@@ -486,7 +486,7 @@ class HistoryStockInController extends Controller
 
         $request->validate([
             'change_date'                        => 'required|date',
-            'waybill_number'                     => 'nullable|string',
+            'waybill_number'                     => 'required|string',
             'waybill_image'                      => UploadLimit::imageRule(),
             'receipt_image'                      => UploadLimit::imageRule(),
             'items'                              => 'required|array',
@@ -498,6 +498,7 @@ class HistoryStockInController extends Controller
             'items.*.unit_conversion_value' => 'required|numeric|min:1',
         ], UploadLimit::imageMessages('waybill_image') + UploadLimit::imageMessages('receipt_image') + [
             'items.required' => 'Tidak ada item yang terkirim. Ini biasanya terjadi kalau foto surat jalan terlalu besar sehingga seluruh form ditolak server — coba foto ulang dengan ukuran lebih kecil.',
+            'waybill_number.required' => 'Nomor surat jalan wajib diisi.',
         ]);
 
         DB::beginTransaction();
@@ -970,7 +971,10 @@ class HistoryStockInController extends Controller
             })
             ->addColumn('stock_in', function ($stockIn) {
                 return view('erp.pages.inventory.stock-in.partials.product-stock-in-history', [
-                    "items" => $stockIn->histories
+                    "items" => $stockIn->histories,
+                    // Nomor surat jalan ikut dibawa supaya bisa diperbaiki dari modal
+                    // Edit History — dulu sering terlewat waktu stock in dibuat.
+                    "waybillNumber" => $stockIn->waybill_number,
                 ])->render();
             })
             ->rawColumns(['invoice_number', 'waybill_image', 'receipt_image', 'stock_in'])
@@ -1071,6 +1075,9 @@ class HistoryStockInController extends Controller
         $request->validate([
             'quantity' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
+            'waybill_number' => 'required|string|max:255',
+        ], [
+            'waybill_number.required' => 'Nomor surat jalan wajib diisi.',
         ]);
 
         // Ambil history
@@ -1125,6 +1132,12 @@ class HistoryStockInController extends Controller
         $history->update([
             'stock_in' => $newQty,
             'notes'    => $request->notes,
+        ]);
+
+        // Nomor surat jalan tinggal di header stock in, bukan di baris history ini,
+        // jadi satu kali edit berlaku untuk semua produk dalam stock in yang sama.
+        $history->stockIn?->update([
+            'waybill_number' => trim($request->waybill_number),
         ]);
 
         Purchase::syncApprovalProgressFromPurchaseItems([$inventoryItem->purchase_item_id]);

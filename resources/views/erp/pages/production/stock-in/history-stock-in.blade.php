@@ -364,6 +364,13 @@
                         </div>
 
                         <div class="mb-2">
+                            <label class="form-label">Nomor Surat Jalan <span class="text-danger">*</span></label>
+                            <input type="text" id="edit_waybill_number" name="waybill_number" class="form-control"
+                                placeholder="Nomor surat jalan">
+                            <div class="form-text">Berlaku untuk seluruh stock in ini, bukan cuma produk di atas.</div>
+                        </div>
+
+                        <div class="mb-2">
                             <label class="form-label">Quantity (pcs)</label>
                             <input type="number" id="edit_quantity" name="quantity" class="form-control" min="0"
                                 required>
@@ -491,13 +498,16 @@
                 const product = $(this).data('product');
                 const freight = parseInt($(this).data('freight')) || 0;
                 const ids = String($(this).data('ids') || id).split(',').filter(Boolean);
+                const stockInIds = String($(this).data('stockin-ids') || '').split(',').filter(Boolean);
 
                 // Isi modal
                 $('#edit_id').val(id);
                 $('#edit_history_ids').html(
-                    ids.map(v => `<input type="hidden" name="history_ids[]" value="${v}">`).join('')
+                    ids.map(v => `<input type="hidden" name="history_ids[]" value="${v}">`).join('') +
+                    stockInIds.map(v => `<input type="hidden" name="stock_in_ids[]" value="${v}">`).join('')
                 );
                 $('#product_name').val(product);
+                $('#edit_waybill_number').val($(this).data('waybill') || '');
                 $('#edit_quantity').val(qty);
                 $('#edit_freight').val(freight.toLocaleString('id-ID'));
                 $('#edit_notes').val(notes || '');
@@ -526,6 +536,19 @@
                 e.preventDefault();
 
                 const id = $('#edit_id').val();
+
+                const waybillNumber = $('#edit_waybill_number');
+                if (!waybillNumber.val().trim()) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Nomor Surat Jalan Kosong',
+                        text: 'Nomor surat jalan wajib diisi sebelum perubahan disimpan.',
+                        confirmButtonText: 'Mengerti'
+                    });
+                    waybillNumber.trigger('focus');
+                    return;
+                }
+
                 const formData = new FormData(this);
 
                 $.ajax({

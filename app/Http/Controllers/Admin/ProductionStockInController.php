@@ -406,7 +406,7 @@ class ProductionStockInController extends Controller
 
         $request->validate([
             'change_date'                  => 'required|date',
-            'waybill_number'               => 'nullable|string',
+            'waybill_number'               => 'required|string',
             'waybill_image'                => UploadLimit::imageRule(),
             'receipt_image'                => UploadLimit::imageRule(),
             'items'                        => 'required|array',
@@ -418,6 +418,7 @@ class ProductionStockInController extends Controller
             'items.*.unit_conversion_value' => 'required|numeric|min:1',
         ], UploadLimit::imageMessages('waybill_image') + UploadLimit::imageMessages('receipt_image') + [
             'items.required' => 'Tidak ada item yang terkirim. Ini biasanya terjadi kalau foto surat jalan terlalu besar sehingga seluruh form ditolak server — coba foto ulang dengan ukuran lebih kecil.',
+            'waybill_number.required' => 'Nomor surat jalan wajib diisi.',
         ]);
 
         DB::beginTransaction();
@@ -674,6 +675,7 @@ class ProductionStockInController extends Controller
 
                 return (object) [
                     'id'             => $first->id,
+                    'stock_in_ids'   => $rows->pluck('id')->all(),
                     'status'         => $first->status,
                     'invoice_number' => $rows->pluck('invoice_number')->unique()->implode(', '),
                     'change_date'    => $first->created_at,
@@ -734,7 +736,11 @@ class ProductionStockInController extends Controller
                 return $this->imageThumbnail($row->receipt_image, 'receipt-' . $row->id, 'Bukti Penerimaan Barang');
             })
             ->addColumn('stock_in', fn($row) => view('erp.pages.production.stock-in.partials.product-stock-in-history', [
-                'items' => $row->histories
+                'items' => $row->histories,
+                // Satu baris tabel bisa menggabungkan beberapa stock in dengan surat
+                // jalan yang sama, jadi editnya harus menyentuh semuanya sekaligus.
+                'waybillNumber' => $row->waybill_number,
+                'stockInIds' => $row->stock_in_ids,
             ])->render())
             ->addColumn('verified', function ($row) {
                 if ($row->is_verified) {
@@ -882,6 +888,11 @@ class ProductionStockInController extends Controller
             'notes'         => 'nullable|string',
             'history_ids'   => 'nullable|array',
             'history_ids.*' => 'integer',
+            'waybill_number' => 'required|string|max:255',
+            'stock_in_ids'   => 'nullable|array',
+            'stock_in_ids.*' => 'integer',
+        ], [
+            'waybill_number.required' => 'Nomor surat jalan wajib diisi.',
         ]);
 
         $history = InventoryStockInHistory::findOrFail($id);
@@ -945,6 +956,18 @@ class ProductionStockInController extends Controller
                 }
                 $row->update($data);
             }
+
+            // Nomor surat jalan tinggal di header stock in. Satu baris tabel history
+            // bisa menggabungkan beberapa header dengan surat jalan yang sama, jadi
+            // semuanya diubah sekaligus supaya tidak pecah jadi dua tagihan angkut.
+            $stockInIds = collect($request->input('stock_in_ids', []))
+                ->map(fn ($v) => (int) $v)
+                ->push((int) $history->inventory_stock_in_id)
+                ->unique()
+                ->values();
+
+            InventoryStockIn::whereIn('id', $stockInIds)
+                ->update(['waybill_number' => trim($request->waybill_number)]);
 
             // Batch FIFO dan avg_cost lahir dari baris history, jadi harus disusun ulang.
             app(FifoCostService::class)->rebuild([(int) $productId]);

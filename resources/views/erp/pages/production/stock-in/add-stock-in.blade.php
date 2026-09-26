@@ -163,7 +163,8 @@
                                     </div>
                                     <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
-                                            <label for="waybill_number" class="fw-semibold">Nomor Surat Jalan:</label>
+                                            <label for="waybill_number" class="fw-semibold">Nomor Surat Jalan: <span
+                                                    class="text-danger">*</span></label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
@@ -507,11 +508,21 @@
                     }
                 });
 
-                // const waybillNumber = $('#waybill_number');
-                // if (!waybillNumber.val().trim()) {
-                //     isValid = false;
-                //     showError(waybillNumber[0], 'Nomor surat jalan wajib diisi');
-                // }
+                // Nomor surat jalan wajib diisi: tanpa nomor ini barisnya tidak bisa
+                // dicocokkan lagi dengan tagihan ongkos angkut. Pesannya dipopupkan,
+                // bukan cuma dipasang di bawah kolomnya, karena tombol simpan ada di
+                // paling bawah dan di layar HP kolom ini sudah jauh di luar pandangan.
+                const waybillNumber = $('#waybill_number');
+                if (!waybillNumber.val().trim()) {
+                    isValid = false;
+                    showError(waybillNumber[0], 'Nomor surat jalan wajib diisi');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Nomor Surat Jalan Kosong',
+                        text: 'Nomor surat jalan wajib diisi sebelum stock in disimpan.',
+                        confirmButtonText: 'Mengerti'
+                    });
+                }
 
                 const waybillImage = $('#waybill_image');
 
