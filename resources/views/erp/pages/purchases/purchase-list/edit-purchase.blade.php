@@ -470,7 +470,7 @@
                                                     </option>
                                                     @foreach ($products as $product)
                                                         <option value="{{ $product->id }}"
-                                                            data-price="{{ $product->last_price ?? 0 }}"
+                                                            data-price="{{ $product->last_price ?? 0 }}">
                                                             [{{ $product->sku }}] {{ $product->name }}
                                                         </option>
                                                     @endforeach
