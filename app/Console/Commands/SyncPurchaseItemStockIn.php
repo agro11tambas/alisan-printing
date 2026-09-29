@@ -4,34 +4,27 @@ namespace App\Console\Commands;
 
 use App\Models\PurchaseItem;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 /**
- * Samakan kolom cermin purchase_items.stock_in dengan sumber aslinya,
+ * Bandingkan kolom cermin purchase_items.stock_in dengan sumber aslinya,
  * inventory_items_2.stock_in.
  *
- * Kolom itu hanya diisi waktu Stock In dibuat. Edit history stock in dulu cuma
- * menggeser inventory item, jadi halaman detail Purchase List bisa menampilkan
- * sisa (mis. 38/50) padahal modul Stock In sudah menghitung sisa nol.
+ * HANYA MELAPORKAN. Perintah ini tidak pernah menulis: selisihnya bisa lahir
+ * dari inventory item yatim atau ganda, jadi menyamakan kolom secara membabi
+ * buta justru menimpa angka yang benar dengan angka yang salah.
  *
- * Default-nya hanya melaporkan. Tambahkan --apply untuk benar-benar menulis.
+ * Kalau ada baris yang muncul di sini, telusuri dulu dengan
+ * `inventory:trace-stock-in` sebelum memutuskan sisi mana yang keliru.
  */
 class SyncPurchaseItemStockIn extends Command
 {
-    protected $signature = 'purchase:sync-item-stock-in
-        {--apply : Tulis perubahan ke database (tanpa ini hanya laporan)}
+    protected $signature = 'purchase:check-item-stock-in
         {--purchase= : Batasi ke satu purchase (id atau purchase_number)}';
 
-    protected $description = 'Samakan purchase_items.stock_in dengan total stock_in inventory item';
+    protected $description = 'Laporkan purchase item yang kolom stock_in-nya beda dari total inventory item (read-only)';
 
     public function handle(): int
     {
-        $apply = (bool) $this->option('apply');
-
-        if (! $apply) {
-            $this->warn('MODE LAPORAN. Tidak ada yang ditulis. Tambahkan --apply untuk memperbaiki.');
-        }
-
         $query = PurchaseItem::query()
             ->with(['purchase:id,purchase_number', 'purchaseProduct:id,name'])
             ->withSum('inventoryItems as inventory_stock_in', 'stock_in');
@@ -70,23 +63,8 @@ class SyncPurchaseItemStockIn extends Command
             })->all()
         );
 
-        $this->info($mismatched->count().' purchase item tidak sinkron.');
-
-        if (! $apply) {
-            $this->warn('Jalankan ulang dengan --apply untuk menerapkan.');
-
-            return self::SUCCESS;
-        }
-
-        DB::transaction(function () use ($mismatched) {
-            foreach ($mismatched as $item) {
-                // updateQuietly supaya perbaikan data tidak memicu event model
-                // yang bisa menulis riwayat edit palsu.
-                $item->updateQuietly(['stock_in' => (int) ($item->inventory_stock_in ?? 0)]);
-            }
-        });
-
-        $this->info('Selesai. '.$mismatched->count().' purchase item disamakan.');
+        $this->warn($mismatched->count().' purchase item tidak sinkron. Perintah ini tidak mengubah apa pun.');
+        $this->line('Telusuri dulu: php artisan inventory:trace-stock-in <purchase_number>');
 
         return self::SUCCESS;
     }
