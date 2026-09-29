@@ -739,6 +739,9 @@ class HistoryStockInController extends Controller
                     'stock_in' => $newValue,
                 ]);
 
+                // Cermin di purchase_items ikut digeser, lihat updateHistoryItem().
+                $this->syncPurchaseItemStockIn($inventoryItem, $diff);
+
                 // update InventoryStock
                 $productId = $inventoryItem->product_id;
                 $inventoryStock = InventoryStock::firstOrCreate(
@@ -1105,9 +1108,18 @@ class HistoryStockInController extends Controller
         $diff   = $newQty - $oldQty;
 
         // Update inventory_item.stock_in
-        $inventoryItem->stock_in += $diff;
-        if ($inventoryItem->stock_in < 0) $inventoryItem->stock_in = 0;
+        $stockInBefore = (int) $inventoryItem->stock_in;
+        $inventoryItem->stock_in = max(0, $stockInBefore + $diff);
         $inventoryItem->save();
+
+        // Selisih yang benar-benar terpakai setelah dijaga supaya tidak minus.
+        $appliedDiff = (int) $inventoryItem->stock_in - $stockInBefore;
+
+        // purchase_items.stock_in adalah cermin dari inventory item dan dibaca
+        // halaman detail Purchase List. Tanpa ikut digeser di sini, angkanya
+        // tertinggal di nilai stock in pertama, sehingga detail PL menampilkan
+        // sisa padahal di modul Stock In sudah nol.
+        $this->syncPurchaseItemStockIn($inventoryItem, $appliedDiff);
 
         // Update inventory_stocks
         $inventoryStock->inventory_stock += $diff;
@@ -1143,5 +1155,28 @@ class HistoryStockInController extends Controller
         Purchase::syncApprovalProgressFromPurchaseItems([$inventoryItem->purchase_item_id]);
 
         return response()->json(['message' => 'History berhasil diperbarui']);
+    }
+
+    /**
+     * Geser kolom cermin purchase_items.stock_in sebesar $delta satuan dasar.
+     *
+     * Kolom ini diisi waktu Stock In dibuat, jadi setiap perubahan sesudahnya
+     * harus lewat sini supaya detail Purchase List tidak berbeda dari modul
+     * Stock In yang membaca inventory_items_2.
+     */
+    private function syncPurchaseItemStockIn(InventoryItem $inventoryItem, int $delta): void
+    {
+        if ($delta === 0 || ! $inventoryItem->purchase_item_id) {
+            return;
+        }
+
+        $purchaseItem = PurchaseItem::find($inventoryItem->purchase_item_id);
+
+        if (! $purchaseItem) {
+            return;
+        }
+
+        $purchaseItem->stock_in = max(0, (int) $purchaseItem->stock_in + $delta);
+        $purchaseItem->save();
     }
 }

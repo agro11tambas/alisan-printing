@@ -23,6 +23,9 @@ class PurchaseDetailController extends Controller
         $purchase = Purchase::with([
             'parentPurchase',
             'purchaseItems.purchaseProduct',
+            // Realisasi Stock In dibaca dari inventory item, bukan dari kolom
+            // purchase_items.stock_in yang bisa basi kalau history stock in diedit.
+            'purchaseItems.inventoryItems',
         ])->findOrFail($id);
 
         return view('erp.pages.purchases.purchase-list.detail-purchase', compact('purchase'));
