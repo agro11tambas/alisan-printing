@@ -1103,9 +1103,24 @@ class HistoryStockInController extends Controller
         }
 
         // Hitung selisih
-        $oldQty = $history->stock_in;
-        $newQty = $request->quantity;
+        $oldQty = (int) $history->stock_in;
+        $newQty = (int) $request->quantity;
         $diff   = $newQty - $oldQty;
+
+        // Penambahan lewat form Stock In selalu dibatasi sisa Purchase List, tapi
+        // edit history dulu tidak: satu baris bisa didorong melewati qty_base
+        // item-nya. Akibatnya satu PL kelebihan dan PL lain terlihat kurang,
+        // padahal total di level PO tetap pas — persis selisih yang sulit dilacak.
+        $qtyBase = (int) ($inventoryItem->qty_base ?: $inventoryItem->quantity);
+
+        if ($qtyBase > 0 && (int) $inventoryItem->stock_in + $diff > $qtyBase) {
+            $room = $qtyBase - ((int) $inventoryItem->stock_in - $oldQty);
+
+            return response()->json([
+                'message' => 'Jumlah melebihi sisa Purchase List untuk produk ini. Maksimal '
+                    .number_format($room, 0, ',', '.').' pcs.',
+            ], 422);
+        }
 
         // Update inventory_item.stock_in
         $stockInBefore = (int) $inventoryItem->stock_in;

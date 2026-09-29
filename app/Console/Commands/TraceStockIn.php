@@ -27,7 +27,8 @@ class TraceStockIn extends Command
 {
     protected $signature = 'inventory:trace-stock-in
         {purchase : Nomor purchase (PO atau PL) atau id-nya}
-        {--product= : Saring ke satu produk (potongan nama)}';
+        {--product= : Saring ke satu produk (potongan nama)}
+        {--history : Tampilkan baris histori stock in beserta siapa dan kapan mencatatnya}';
 
     protected $description = 'Telusuri angka Stock In sebuah PO/PL sampai ke baris inventory item (read-only)';
 
@@ -148,6 +149,52 @@ class TraceStockIn extends Command
             $rows
         );
 
+        if ($this->option('history')) {
+            $this->dumpHistories($items->pluck('id'));
+        }
+
+        $this->dumpOrphans($purchase);
+    }
+
+    /**
+     * Baris histori mentah: yang membedakan "sekali catat" dari "dicatat lalu
+     * diedit". Status header Add/Edit Stock In dan jam pencatatannya yang
+     * memberi tahu dari mana angka yang tidak wajar itu masuk.
+     */
+    private function dumpHistories($purchaseItemIds): void
+    {
+        $histories = DB::table('inventory_stock_in_histories_2 as h')
+            ->join('inventory_items_2 as ii', 'ii.id', '=', 'h.inventory_item_id')
+            ->leftJoin('inventory_stock_ins_2 as sh', 'sh.id', '=', 'h.inventory_stock_in_id')
+            ->leftJoin('users as u', 'u.id', '=', 'sh.user_id')
+            ->whereIn('ii.purchase_item_id', $purchaseItemIds)
+            ->orderBy('h.id')
+            ->select([
+                'h.id', 'h.inventory_item_id', 'h.stock_in', 'h.created_at',
+                'sh.status', 'sh.waybill_number', 'u.name as user_name',
+            ])
+            ->get();
+
+        if ($histories->isEmpty()) {
+            return;
+        }
+
+        $this->table(
+            ['Histori', 'Inv item', 'Stock In', 'Status header', 'Surat jalan', 'Oleh', 'Dicatat'],
+            $histories->map(fn ($history) => [
+                $history->id,
+                $history->inventory_item_id,
+                number_format((float) $history->stock_in),
+                $history->status ?? '-',
+                $history->waybill_number ?? '-',
+                mb_strimwidth($history->user_name ?? '-', 0, 18, '...'),
+                $history->created_at,
+            ])->all()
+        );
+    }
+
+    private function dumpOrphans(Purchase $purchase): void
+    {
         // Inventory item milik purchase ini yang tidak menunjuk purchase item mana
         // pun. Baris seperti ini ikut terhitung di modul Stock In tapi tidak pernah
         // muncul di Purchase List, jadi sering jadi biang selisih.
