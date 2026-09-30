@@ -255,6 +255,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/inventory/stock-opname', [StockOpnameController::class, 'getStockOpname']);
             Route::get('/erp/inventory/stock-opname/data', [StockOpnameController::class, 'dataStockOpname']);
             Route::get('/erp/inventory/stock-opname/create-stock-opname', [StockOpnameController::class, 'create']);
+            Route::get('/erp/inventory/stock-opname/suggested-cost', [StockOpnameController::class, 'suggestedCost']);
             Route::post('/erp/inventory/stock-opname/store', [StockOpnameController::class, 'store']);
             Route::get('/erp/inventory/stock-opname/edit-stock-opname/{id}', [StockOpnameController::class, 'edit']);
             Route::put('/erp/inventory/stock-opname/update/{id}', [StockOpnameController::class, 'update']);
@@ -622,6 +623,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/purchases/freight-payments', [FreightPaymentController::class, 'index']);
             Route::get('/erp/purchases/freight-payments/data', [FreightPaymentController::class, 'data']);
             Route::get('/erp/purchases/freight-payments/detail', [FreightPaymentController::class, 'detail']);
+            Route::get('/erp/purchases/freight-payments/documents', [FreightPaymentController::class, 'documents']);
             Route::get('/erp/purchases/freight-payments/payment-history', [FreightPaymentController::class, 'paymentHistory']);
             Route::put('/erp/purchases/freight-payments/update-payment/{groupId}', [FreightPaymentController::class, 'updatePayment'])
                 ->name('freight-payments.updatePayment');

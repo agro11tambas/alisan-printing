@@ -34,13 +34,24 @@
 
         .static-action-menu {
             padding: 6px;
-            min-width: 700px;
+            min-width: 900px;
         }
 
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 12px 20px;
+        }
+
+        /* Layar sempit-sedang: 4 kolom jadi terlalu padat, dijadikan 2. */
+        @media (max-width: 1200px) {
+            .static-action-menu {
+                min-width: 520px;
+            }
+
+            .action-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .action-col {
@@ -175,6 +186,25 @@
                                     </div>
                                 </div>
                             </div>
+                            {{--
+                                Filter status, menempel di kiri "Filter By".
+
+                                ms-auto-nya yang bikin menempel: baris ini memakai
+                                justify-content-between, jadi tanpa itu sisa ruangnya
+                                dibagi rata dan Status melayang di tengah-tengah,
+                                jauh dari Filter By.
+
+                                Tidak ada pilihan "semua" -- halaman ini daftar
+                                kerjaan, jadi Progress sekaligus jadi keadaan awalnya.
+                            --}}
+                            <div class="col-lg-2 ms-auto">
+                                <label for="filter_payment_status" class="fw-semibold fs-12">Status</label>
+                                <select id="filter_payment_status" class="form-control"
+                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                    <option value="Progress" selected>Progress</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
                             <div class="col-lg-4">
                                 <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                 <div class="row g-3">
@@ -184,20 +214,12 @@
                                             <option value="waybill">Nomor Surat Jalan</option>
                                             <option value="supplier">Supplier</option>
                                             <option value="invoice">Invoice</option>
-                                            <option value="payment_status">Payment Status</option>
                                         </select>
                                     </div>
                                     <div class="col-md-6">
                                         <input type="text" id="search_keyword" name="search_keyword"
                                             class="form-control search-input"
                                             style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search..." />
-                                        <select id="search_payment_status" class="form-control search-input d-none"
-                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
-                                            <option value="">All</option>
-                                            <option value="Paid">Paid</option>
-                                            <option value="Unpaid">Unpaid</option>
-                                            <option value="Partially Paid">Partially Paid</option>
-                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -357,6 +379,39 @@
     </div>
 @endpush
 
+@push('modals')
+    {{-- Foto Surat Jalan & Bukti Penerimaan Barang dari Stock In. --}}
+    <div class="modal fade-scale" id="modalFreightDocuments" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="fw-bold mb-0">Foto Dokumen Stock In</h5>
+                        <small class="text-muted" id="freightDocsSubtitle"></small>
+                    </div>
+                    <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon"
+                        data-bs-dismiss="modal">
+                        <i class="feather-x text-danger"></i>
+                    </a>
+                </div>
+                <div class="modal-body">
+                    <div id="freightDocsBody">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div> Memuat foto…
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <small class="text-muted me-auto">
+                        Klik foto untuk memperbesar. Fotonya milik Stock In — untuk menggantinya, ubah dari halaman
+                        Stock In.
+                    </small>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endpush
 @push('scripts')
     <script>
         $(document).ready(function() {
@@ -448,7 +503,7 @@
                         d.end_date = $('#end_date').val();
                         d.search_type = $('#search_type').val();
                         d.search_keyword = $('#search_keyword').val();
-                        d.payment_status = $('#search_payment_status').val();
+                        d.payment_status = $('#filter_payment_status').val();
                     }
                 },
                 columns: [{
@@ -507,19 +562,9 @@
                 reloadTable();
             });
 
-            $('#search_type').on('change', function() {
-                if ($(this).val() === 'payment_status') {
-                    $('#search_keyword').addClass('d-none').val('');
-                    $('#search_payment_status').removeClass('d-none');
-                } else {
-                    $('#search_keyword').removeClass('d-none');
-                    $('#search_payment_status').addClass('d-none').val('');
-                }
+            $('#search_type').on('change', reloadTable);
 
-                reloadTable();
-            });
-
-            $('#search_payment_status').on('change', reloadTable);
+            $('#filter_payment_status').on('change', reloadTable);
 
             $('#search_keyword').on('keypress', function(e) {
                 if (e.which === 13) {
@@ -595,7 +640,103 @@
                 $('#freightPaymentTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // ================= MARK AS PAID =================
+            // ================= FOTO DOKUMEN STOCK IN =================
+            const documentCache = {};
+
+            function documentCard(doc, group) {
+                const sources = (doc.sources || []).join('<br>');
+
+                // PDF tidak bisa jadi thumbnail; dibuatkan kartu bericon yang
+                // membuka file aslinya di tab baru.
+                const media = doc.is_pdf
+                    ? `
+                        <a href="${doc.url}" target="_blank" rel="noopener"
+                            class="d-flex flex-column align-items-center justify-content-center text-decoration-none"
+                            style="aspect-ratio:4/3;background:#f5f5f5;border-radius:6px;">
+                            <i class="feather-file-text" style="font-size:28px"></i>
+                            <small class="mt-1">Buka PDF</small>
+                        </a>
+                    `
+                    : `
+                        <a href="${doc.url}" data-lightbox="${group}">
+                            <div style="aspect-ratio:4/3;overflow:hidden;border-radius:6px;background:#f5f5f5;">
+                                <img src="${doc.url}" alt="Foto dokumen"
+                                    style="width:100%;height:100%;object-fit:cover;display:block;">
+                            </div>
+                        </a>
+                    `;
+
+                return `
+                    <div class="col-6 col-md-4">
+                        ${media}
+                        <div class="fs-11 text-muted mt-1">${sources}</div>
+                    </div>
+                `;
+            }
+
+            function documentSection(title, docs, group) {
+                if (!docs || docs.length === 0) {
+                    return `
+                        <div class="mb-3">
+                            <div class="fw-semibold mb-2">${title}</div>
+                            <div class="text-muted fs-12">Tidak ada foto.</div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-2">${title} <span class="text-muted fw-normal">(${docs.length})</span></div>
+                        <div class="row g-2">
+                            ${docs.map(doc => documentCard(doc, group)).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            $(document).on('click', '.btn-freight-documents', function() {
+                const data = $(this).data();
+                const key = data.waybillKey;
+
+                $('#freightDocsSubtitle').text(`${data.waybillNumber} — ${data.supplier}`);
+                $('#freightDocsBody').html(
+                    '<div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div> Memuat foto…</div>'
+                );
+
+                $('#freightPaymentTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+                $('#modalFreightDocuments').modal('show');
+
+                const request = documentCache[key]
+                    ? $.Deferred().resolve(documentCache[key]).promise()
+                    : $.get("{{ url('/erp/purchases/freight-payments/documents') }}", {
+                        waybill_key: key
+                    }).then(function(res) {
+                        documentCache[key] = res;
+                        return res;
+                    });
+
+                request.done(function(res) {
+                    const total = (res.waybill || []).length + (res.receipt || []).length;
+
+                    if (total === 0) {
+                        $('#freightDocsBody').html(
+                            '<div class="text-center text-muted py-4">Stock In di balik surat jalan ini belum punya foto dokumen.</div>'
+                        );
+                        return;
+                    }
+
+                    $('#freightDocsBody').html(
+                        documentSection('Surat Jalan', res.waybill, 'freight-waybill-' + key) +
+                        documentSection('Bukti Penerimaan Barang', res.receipt, 'freight-receipt-' + key)
+                    );
+                }).fail(function() {
+                    $('#freightDocsBody').html(
+                        '<div class="text-center text-danger py-4">Gagal memuat foto dokumen.</div>'
+                    );
+                });
+            });
+
+TTXT_PLACEHOLDER            // ================= MARK AS PAID =================
             $(document).on('click', '.btn-mark-paid-freight', function() {
                 const data = $(this).data();
                 const remaining = parseFloat(data.remaining) || 0;

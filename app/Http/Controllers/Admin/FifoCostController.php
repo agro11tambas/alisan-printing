@@ -282,6 +282,10 @@ class FifoCostController extends Controller
         $message = 'HPP FIFO dihitung ulang: '.number_format($stats['layers']).' batch, '
             .number_format($stats['order_items']).' baris penjualan.';
 
+        if ($stats['opnames'] > 0) {
+            $message .= ' '.number_format($stats['opnames']).' selisih stock opname dinilai.';
+        }
+
         if ($stats['estimated_items'] > 0) {
             $message .= ' '.number_format($stats['estimated_items']).' baris memakai harga taksiran.';
         }

@@ -21,6 +21,13 @@ class CostLayer extends Model
 
     public const SOURCE_OPENING = 'opening_stock';
 
+    /**
+     * Stok yang ketemu lebih banyak saat hitung fisik. Duduk di ekor antrian
+     * (layer_date = akhir hari opname) karena umur barangnya tidak diketahui:
+     * memperlakukannya sebagai batch terbaru adalah pilihan yang paling aman.
+     */
+    public const SOURCE_OPNAME = 'stock_opname';
+
     protected $fillable = [
         'product_id',
         'source_type',
@@ -52,5 +59,10 @@ class CostLayer extends Model
     public function consumptions(): HasMany
     {
         return $this->hasMany(CostConsumption::class, 'cost_layer_id');
+    }
+
+    public function opnameCostLayers(): HasMany
+    {
+        return $this->hasMany(StockOpnameCostLayer::class, 'cost_layer_id');
     }
 }

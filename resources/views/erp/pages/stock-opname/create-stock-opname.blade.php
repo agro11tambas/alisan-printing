@@ -38,6 +38,7 @@
                                 <th>Product</th>
                                 <th>Quantity</th>
                                 <th>Status</th>
+                                <th style="min-width:170px">Unit Cost</th>
                                 <th>Date</th>
                                 <th>Notes</th>
                                 <th width="50"></th>
@@ -63,6 +64,11 @@
                                         <option value="Gain" data-bg="bg-success">Gain</option>
                                         <option value="Loss" data-bg="bg-danger">Loss</option>
                                     </select>
+                                </td>
+                                <td>
+                                    <input type="text" inputmode="numeric" name="items[0][unit_cost]"
+                                        class="form-control unit-cost" placeholder="Otomatis">
+                                    <div class="fs-11 text-muted cost-hint mt-1">Pilih produk dulu</div>
                                 </td>
                                 <td><input type="date" name="items[0][date]" value="{{ date('Y-m-d') }}"
                                         class="form-control"></td>
@@ -96,6 +102,11 @@
                                     <option value="Gain" data-bg="bg-success">Gain</option>
                                     <option value="Loss" data-bg="bg-danger">Loss</option>
                                 </select>
+                            </td>
+                            <td>
+                                <input type="text" inputmode="numeric" class="form-control unit-cost"
+                                    placeholder="Otomatis">
+                                <div class="fs-11 text-muted cost-hint mt-1">Pilih produk dulu</div>
                             </td>
                             <td><input type="date" value="{{ date('Y-m-d') }}" class="form-control date"></td>
                             <td><input type="text" class="form-control notes" placeholder="Optional"></td>
@@ -204,6 +215,66 @@
                 this.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
             });
 
+            // ----------------------------------------------------------
+            // Harga modal baris opname
+            //
+            // Loss  : field dimatikan. Harganya milik batch yang termakan,
+            //         dihitung server dengan FIFO — mengetiknya di sini cuma
+            //         akan membuat nilai persediaan tidak cocok dengan sisa
+            //         batch, dan selisihnya susah dilacak belakangan.
+            // Gain  : diusulkan dari avg cost produk. Boleh ditimpa, dan
+            //         sekali ditimpa usulannya tidak menindih lagi.
+            // ----------------------------------------------------------
+            $(document).on('input', '.unit-cost', function() {
+                let raw = this.value.replace(/\D/g, '');
+                this.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
+                $(this).data('manual', raw !== '');
+            });
+
+            function refreshCost($row) {
+                const $cost = $row.find('.unit-cost');
+                const $hint = $row.find('.cost-hint');
+                const status = $row.find('select[name$="[status]"]').val();
+                const productId = $row.find('select[name$="[product_id]"]').val();
+
+                if (status === 'Loss') {
+                    $cost.val('').prop('readonly', true).addClass('bg-light');
+                    $hint.text('Otomatis dari batch FIFO tertua');
+                    return;
+                }
+
+                $cost.prop('readonly', false).removeClass('bg-light');
+
+                if (!productId) {
+                    $hint.text('Pilih produk dulu');
+                    return;
+                }
+
+                if ($cost.data('manual')) {
+                    $hint.text('Manual');
+                    return;
+                }
+
+                $hint.text('Mengambil harga…');
+
+                $.getJSON('/erp/inventory/stock-opname/suggested-cost', {
+                    product_id: productId
+                }).done(function(res) {
+                    if ($cost.data('manual')) return;
+
+                    const cost = Number(res.unit_cost) || 0;
+
+                    $cost.val(cost ? new Intl.NumberFormat('id-ID').format(Math.round(cost)) : '');
+                    $hint.text(cost ? res.cost_source_label : 'Produk ini belum punya harga modal — isi manual');
+                }).fail(function() {
+                    $hint.text('Gagal mengambil harga, isi manual');
+                });
+            }
+
+            $(document).on('change', 'select[name$="[product_id]"], select[name$="[status]"]', function() {
+                refreshCost($(this).closest('tr'));
+            });
+
             $('input[name^="items"][name$="[quantity]"]').each(function() {
                 if (this.value.trim() !== '') {
                     this.value = new Intl.NumberFormat('id-ID').format(parseFloat(this.value.replace(/\./g,
@@ -221,11 +292,13 @@
                 $row.find('.warehouse-id').attr('name', `items[${rowIndex}][inventory_warehouse_id]`);
                 $row.find('.quantity').attr('name', `items[${rowIndex}][quantity]`);
                 $row.find('.status').attr('name', `items[${rowIndex}][status]`);
+                $row.find('.unit-cost').attr('name', `items[${rowIndex}][unit_cost]`);
                 $row.find('.date').attr('name', `items[${rowIndex}][date]`);
                 $row.find('.notes').attr('name', `items[${rowIndex}][notes]`);
 
                 $('#itemsBody').append($row);
                 initSelect2($row);
+                refreshCost($row);
                 rowIndex++;
             });
 
@@ -268,7 +341,7 @@
                     return;
                 }
 
-                form.querySelectorAll('input[name^="items"][name$="[quantity]"]').forEach(input => {
+                form.querySelectorAll('input[name^="items"][name$="[quantity]"], .unit-cost').forEach(input => {
                     input.value = input.value.replace(/\./g, '');
                 });
             });

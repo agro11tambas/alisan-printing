@@ -75,7 +75,8 @@ class FreightPaymentController extends Controller
             ->selectRaw('MAX(r.supplier_name) as supplier_name')
             ->selectRaw('MIN(r.change_date) as change_date')
             ->selectRaw('GROUP_CONCAT(DISTINCT r.invoice_number ORDER BY r.invoice_number SEPARATOR ", ") as invoice_numbers')
-            ->selectRaw('SUM(r.freight_amount) as total_freight');
+            ->selectRaw('SUM(r.freight_amount) as total_freight')
+            ->selectRaw($this->documentCountExpression());
 
         $paid = DB::table('freight_payments')
             ->whereNull('deleted_at')
@@ -91,11 +92,23 @@ class FreightPaymentController extends Controller
             ->selectRaw('b.total_freight - COALESCE(p.paid_amount, 0) as remaining_amount')
             ->orderByDesc('b.change_date');
 
-        if ($request->input('search_type') === 'payment_status' && $request->filled('payment_status')) {
+        // Berdiri sendiri: filter status tidak lagi bergantung pada pilihan
+        // "Filter By", jadi mencari nomor surat jalan sambil menyaring status
+        // sekarang bisa dilakukan sekaligus.
+        if ($request->filled('payment_status')) {
             match ($request->input('payment_status')) {
-                'Paid' => $query->havingRaw('remaining_amount <= 0.5'),
-                'Partially Paid' => $query->havingRaw('remaining_amount > 0.5 and paid_amount > 0'),
-                default => $query->havingRaw('paid_amount <= 0'),
+                // Ambang 0,5 rupiah, bukan nol: sisa tagihan hasil qty x freight
+                // bisa menyisakan pecahan sen yang tidak akan pernah dibayar.
+                'Completed', 'Paid' => $query->havingRaw('remaining_amount <= 0.5'),
+
+                // Progress = apa pun yang belum lunas, termasuk yang sudah
+                // dibayar sebagian. Dulu keduanya dipisah jadi Unpaid dan
+                // Partially Paid; nilai lama itu tetap diterima supaya tautan
+                // atau bookmark yang sudah beredar tidak berubah artinya --
+                // sekarang keduanya sama-sama berarti belum selesai.
+                'Progress', 'Unpaid', 'Partially Paid' => $query->havingRaw('remaining_amount > 0.5'),
+
+                default => null,
             };
         }
 
@@ -590,6 +603,12 @@ class FreightPaymentController extends Controller
                 'si.invoice_number',
                 'si.change_date',
                 'pur.supplier_id',
+                // Ikut dibawa supaya jumlah dokumennya bisa dihitung sekali
+                // di query daftar. Kalau dihitung per baris saat tombolnya
+                // dirender, satu halaman tabel jadi berisi belasan query
+                // kecil tambahan.
+                'si.waybill_image',
+                'si.receipt_image',
             ])
             ->selectRaw("COALESCE(s.name, '-') as supplier_name")
             ->selectRaw('h.stock_in / GREATEST(COALESCE(ii.unit_conversion_value, 1), 1) * h.freight as freight_amount');
@@ -607,6 +626,7 @@ class FreightPaymentController extends Controller
             ->selectRaw('MAX(r.supplier_name) as supplier_name')
             ->selectRaw('GROUP_CONCAT(DISTINCT r.invoice_number ORDER BY r.invoice_number SEPARATOR ", ") as invoice_numbers')
             ->selectRaw('SUM(r.freight_amount) as total_freight')
+            ->selectRaw($this->documentCountExpression())
             ->first();
 
         if ($bill === null) {
@@ -620,20 +640,127 @@ class FreightPaymentController extends Controller
         return $bill;
     }
 
+    /**
+     * Jumlah foto dokumen di balik satu surat jalan, untuk label tombolnya.
+     *
+     * DISTINCT-nya bukan hiasan: satu surat jalan biasanya difoto sekali lalu
+     * path yang sama dipasang ke semua baris stock in-nya, jadi tanpa DISTINCT
+     * jumlahnya ikut sebanyak baris — bukan sebanyak foto.
+     */
+    private function documentCountExpression(): string
+    {
+        return 'COUNT(DISTINCT r.waybill_image) + COUNT(DISTINCT r.receipt_image) as document_count';
+    }
+
+    /**
+     * Foto Surat Jalan dan Bukti Penerimaan Barang milik stock in di balik satu
+     * tagihan freight.
+     *
+     * Fotonya tidak disalin ke modul ini — yang dibaca tetap kolom di
+     * inventory_stock_ins_2, jadi begitu fotonya diganti dari halaman Stock In,
+     * yang tampil di sini ikut berubah dan tidak ada dua sumber kebenaran.
+     */
+    public function documents(Request $request)
+    {
+        $waybillKey = (string) $request->input('waybill_key');
+
+        abort_if($waybillKey === '', 404);
+
+        $bill = $this->billFor($waybillKey);
+
+        abort_if($bill === null, 404);
+
+        // Id-nya diambil lebih dulu lalu stock in-nya dibaca terpisah, bukan
+        // sekali query dengan GROUP BY. Alasannya sama dengan catatan di
+        // billRows(): MySQL produksi memakai ONLY_FULL_GROUP_BY dan menolak
+        // kolom yang tidak ikut di GROUP BY, sedangkan lokal menerimanya —
+        // bug seperti itu tidak kelihatan waktu dikembangkan.
+        $stockInIds = DB::table('inventory_stock_in_histories_2 as h')
+            ->join('inventory_stock_ins_2 as si', 'si.id', '=', 'h.inventory_stock_in_id')
+            ->join('inventory_items_2 as ii', 'ii.id', '=', 'h.inventory_item_id')
+            ->join('inventories_2 as inv', 'inv.id', '=', 'si.inventory_id')
+            ->leftJoin('purchases as pur', 'pur.id', '=', 'inv.purchase_id')
+            ->whereNull('h.deleted_at')
+            ->whereNull('si.deleted_at')
+            ->whereNull('ii.deleted_at')
+            ->where('h.stock_in', '>', 0)
+            ->where('h.freight', '>', 0)
+            ->whereRaw($this->waybillKeyExpression().' = ?', [$waybillKey])
+            ->distinct()
+            ->pluck('si.id')
+            ->all();
+
+        $stockIns = $stockInIds === [] ? collect() : DB::table('inventory_stock_ins_2')
+            ->whereIn('id', $stockInIds)
+            ->orderBy('id')
+            ->get(['id', 'invoice_number', 'waybill_number', 'change_date', 'waybill_image', 'receipt_image']);
+
+        $groups = ['waybill' => [], 'receipt' => []];
+
+        foreach ($stockIns as $stockIn) {
+            $sumber = ($stockIn->invoice_number ?: 'Tanpa invoice')
+                .' · '.($stockIn->change_date ? date('d/m/Y', strtotime($stockIn->change_date)) : '-');
+
+            foreach (['waybill' => $stockIn->waybill_image, 'receipt' => $stockIn->receipt_image] as $type => $path) {
+                $path = trim((string) $path);
+
+                if ($path === '') {
+                    continue;
+                }
+
+                // Foto yang sama dipakai beberapa stock in cukup ditampilkan
+                // sekali; yang dicatat sumbernya, supaya tetap jelas baris mana
+                // saja yang memakainya.
+                if (isset($groups[$type][$path])) {
+                    $groups[$type][$path]['sources'][] = $sumber;
+
+                    continue;
+                }
+
+                $groups[$type][$path] = [
+                    'type' => $type,
+                    'url' => asset($path),
+                    // Aturan unggahnya mengizinkan PDF, dan PDF tidak bisa
+                    // ditaruh di tag img — layar membukanya di tab baru.
+                    'is_pdf' => str_ends_with(strtolower($path), '.pdf'),
+                    'sources' => [$sumber],
+                ];
+            }
+        }
+
+        $rapikan = fn (array $items) => array_values(array_map(function ($item) {
+            $item['sources'] = array_values(array_unique($item['sources']));
+
+            return $item;
+        }, $items));
+
+        return response()->json([
+            'bill' => [
+                'waybill_key' => $bill->waybill_key,
+                'waybill_number' => $bill->waybill_number ?: '(tanpa no. surat jalan)',
+                'supplier_name' => $bill->supplier_name,
+                'invoice_numbers' => $bill->invoice_numbers,
+            ],
+            'waybill' => $rapikan($groups['waybill']),
+            'receipt' => $rapikan($groups['receipt']),
+        ]);
+    }
+    /**
+     * Status tagihan freight: cuma dua, Progress atau Completed.
+     *
+     * Yang sudah dibayar sebagian ikut Progress. Bedanya dengan yang belum
+     * dibayar sama sekali tidak dijadikan status tersendiri karena sudah
+     * terbaca langsung dari kolom Freight Paid dan Remaining di baris yang
+     * sama -- status di sini gunanya menjawab "masih perlu dikerjakan atau
+     * tidak", dan untuk itu keduanya jawabannya sama.
+     */
     private function statusBadge(object $row): string
     {
-        $remaining = (float) $row->remaining_amount;
-        $paid = (float) $row->paid_amount;
-
-        if ($remaining <= 0.5) {
-            return '<span class="badge bg-soft-success text-success">Paid</span>';
+        if ((float) $row->remaining_amount <= 0.5) {
+            return '<span class="badge bg-soft-success text-success">Completed</span>';
         }
 
-        if ($paid > 0) {
-            return '<span class="badge bg-soft-warning text-warning">Partially Paid</span>';
-        }
-
-        return '<span class="badge bg-soft-danger text-danger">Unpaid</span>';
+        return '<span class="badge bg-soft-warning text-warning">Progress</span>';
     }
 
     private function storeProofs(Request $request): ?string

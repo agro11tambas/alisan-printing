@@ -139,6 +139,8 @@
                                         <th>Product</th>
                                         <th>Date</th>
                                         <th>Quantity</th>
+                                        <th>Unit Cost</th>
+                                        <th class="text-end">Nilai Selisih</th>
                                         <th>Status</th>
                                         <th>Notes</th>
                                         <!-- <th class="text-end">Actions</th> -->
@@ -220,6 +222,13 @@
                     },
                     {
                         data: 'quantity'
+                    },
+                    {
+                        data: 'unit_cost'
+                    },
+                    {
+                        data: 'cost_value',
+                        className: 'text-end'
                     },
                     {
                         data: 'status'

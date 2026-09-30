@@ -110,6 +110,95 @@
                                 </div>
                             </div>
 
+                            {{--
+                                Harga modal baris opname.
+
+                                Loss : dimatikan. Harganya milik batch FIFO yang
+                                       termakan, jadi server yang menghitungnya —
+                                       mengetik angka sendiri di sini hanya membuat
+                                       nilai persediaan tidak cocok dengan sisa batch.
+                                Gain : boleh diisi. Kosong berarti ikut avg cost
+                                       (rata-rata tertimbang sisa batch produk).
+                            --}}
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="unit_cost" class="fw-semibold">Unit Cost:</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <div class="input-group">
+                                        <div class="input-group-text">Rp</div>
+                                        <input type="text" inputmode="numeric" class="form-control" id="unit_cost"
+                                            name="unit_cost"
+                                            value="{{ old('unit_cost', $stockOpname->unit_cost > 0 ? number_format($stockOpname->unit_cost, 0, ',', '.') : '') }}"
+                                            placeholder="Otomatis">
+                                    </div>
+                                    <div class="fs-11 text-muted mt-1" id="costHint"></div>
+                                    @error('unit_cost')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-lg-2">
+                                    <label class="fw-semibold">Nilai Selisih:</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <div class="fw-semibold">
+                                        Rp {{ number_format((float) $stockOpname->cost_value, 0, ',', '.') }}
+                                        <span class="fs-11 text-muted fw-normal">
+                                            ({{ $stockOpname->costSourceLabel() }})
+                                        </span>
+                                    </div>
+                                    @if ($stockOpname->is_estimated)
+                                        <div class="fs-11 text-warning mt-1">
+                                            <i class="feather-alert-triangle"></i>
+                                            Sebagian kuantitasnya tidak tertutup batch mana pun, jadi harganya taksiran.
+                                            Lengkapi pembelian atau Opening Rate produk ini lalu hitung ulang HPP.
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            @if ($stockOpname->costLayers->isNotEmpty())
+                                <div class="row mb-2">
+                                    <div class="col-lg-2">
+                                        <label class="fw-semibold">Rincian Batch:</label>
+                                    </div>
+                                    <div class="col-lg-10 mb-0">
+                                        <table class="table table-sm table-bordered mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Batch</th>
+                                                    <th class="text-end">Qty</th>
+                                                    <th class="text-end">Harga</th>
+                                                    <th class="text-end">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($stockOpname->costLayers as $row)
+                                                    <tr>
+                                                        <td>
+                                                            @if ($row->costLayer)
+                                                                {{ $row->costLayer->reference ?: '-' }}
+                                                                <span class="fs-11 text-muted">
+                                                                    ({{ \Carbon\Carbon::parse($row->costLayer->layer_date)->format('d M Y') }})
+                                                                </span>
+                                                            @else
+                                                                <span class="text-warning">Tanpa batch (taksiran)</span>
+                                                            @endif
+                                                        </td>
+                                                        <td class="text-end">{{ number_format($row->qty, 0, ',', '.') }}</td>
+                                                        <td class="text-end">{{ number_format($row->unit_cost, 0, ',', '.') }}</td>
+                                                        <td class="text-end">{{ number_format($row->subtotal, 0, ',', '.') }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            @endif
+
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="notes" class="fw-semibold">Notes:</label>
@@ -144,6 +233,28 @@
             return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
         }
 
+        // Field Unit Cost hanya masuk akal untuk Gain. Pada Loss harganya
+        // ditentukan batch yang termakan, jadi dimatikan supaya tidak ada yang
+        // mengira angka di sini berpengaruh.
+        function syncCostField() {
+            const status = document.getElementById('status');
+            const cost = document.getElementById('unit_cost');
+            const hint = document.getElementById('costHint');
+
+            if (!status || !cost) return;
+
+            if (status.value === 'Loss') {
+                cost.readOnly = true;
+                cost.classList.add('bg-light');
+                cost.value = '';
+                hint.textContent = 'Otomatis dari batch FIFO tertua — tidak bisa diisi manual.';
+                return;
+            }
+
+            cost.readOnly = false;
+            cost.classList.remove('bg-light');
+            hint.textContent = 'Kosongkan untuk ikut avg cost produk saat disimpan.';
+        }
         function initSelect2(el) {
             $(el).select2({
                 width: '100%',
@@ -156,13 +267,24 @@
             initSelect2('#product');
             initSelect2('#status');
 
-            $(document).on('input', '#quantity', function() {
+            $(document).on('input', '#quantity, #unit_cost', function() {
                 formatNumberInput(this);
             });
+
+            syncCostField();
+            $('#status').on('change', syncCostField);
 
             $('#stockOpnameForm').on('submit', function(e) {
                 const qty = document.getElementById('quantity');
                 qty.value = parseNumberValue(qty.value);
+
+                // Kosong dikirim apa adanya: server membacanya sebagai
+                // "pakai avg cost", sedangkan 0 akan ditolak validasi.
+                const cost = document.getElementById('unit_cost');
+
+                if (cost && cost.value.trim() !== '') {
+                    cost.value = parseNumberValue(cost.value);
+                }
             });
 
             $(document).on('select2:open', () => {

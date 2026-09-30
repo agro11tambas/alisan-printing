@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CostLayer;
 use App\Models\CostSetting;
+use App\Models\StockOpname;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -18,10 +19,16 @@ use Illuminate\Support\Facades\Schema;
  * diketik tapi barangnya belum datang tidak ikut menilai penjualan mana pun.
  *
  * Cara kerjanya: seluruh stok masuk disusun jadi antrian batch (cost_layers),
- * lalu seluruh penjualan dan retur diputar ulang urut tanggal dan memakan
- * antrian itu dari yang paling tua. Satu baris penjualan boleh memakan lebih
- * dari satu batch; harga modal barisnya adalah rata-rata tertimbang batch yang
- * termakan.
+ * lalu seluruh penjualan, retur, dan selisih hitung fisik diputar ulang urut
+ * tanggal dan memakan antrian itu dari yang paling tua. Satu baris penjualan
+ * boleh memakan lebih dari satu batch; harga modal barisnya adalah rata-rata
+ * tertimbang batch yang termakan.
+ *
+ * Stock Opname ikut di sini, bukan cuma menggeser angka kuantitas. Selisih
+ * KURANG memakan antrian seperti penjualan, jadi harganya tidak perlu diketik:
+ * dia milik batch yang termakan. Selisih LEBIH melahirkan batch baru di ekor
+ * antrian, dan itu satu-satunya kasus yang memang butuh harga — diusulkan dari
+ * avg cost lalu dibekukan, supaya laporan lama tidak bergeser belakangan.
  *
  * Contoh: batch 1.000@300, 1.000@350, 1.000@400. Setelah terjual 1.500,
  * penjualan berikutnya sebanyak 1.000 memakan 500@350 + 500@400, sehingga
@@ -53,6 +60,21 @@ class FifoCostService
 
     /** Status order yang dianggap penjualan terealisasi. */
     private const SALE_ORDER_STATUS = 'Sale List';
+
+    /** transaction_type baris financial_reports untuk selisih opname. */
+    public const FINANCIAL_TYPE_OPNAME = 'stock_opname';
+
+    /**
+     * Urutan kejadian pada cap waktu yang sama. Angkanya bukan selera:
+     * retur mendahului penjualan supaya stok yang balik bisa langsung
+     * dipakai, dan opname paling belakang karena hitung fisik menilai
+     * kondisi SETELAH seluruh transaksi hari itu.
+     */
+    private const ORDER_RETURN = 0;
+
+    private const ORDER_SALE = 1;
+
+    private const ORDER_OPNAME = 2;
 
     /** Batas putaran perluasan scope sebelum menyerah dan rebuild penuh. */
     private const SCOPE_EXPANSION_ROUNDS = 5;
@@ -119,6 +141,17 @@ class FifoCostService
 
     private array $orderCostBuffer = [];
 
+    /** Rincian batch yang dipakai tiap baris Stock Opname. */
+    private array $opnameCostBuffer = [];
+
+    /**
+     * Hasil hitungan FIFO per baris opname Loss, untuk ditulis balik ke
+     * stock_opnames.
+     *
+     * @var array<int, array{qty:float, value:float, unit_cost:float, source:string, estimated:bool}>
+     */
+    private array $opnameTotals = [];
+
     /**
      * Tanggal mulai pembukuan FIFO, atau null kalau seluruh riwayat dipakai.
      * Dibaca sekali per rebuild.
@@ -134,6 +167,7 @@ class FifoCostService
         'consumptions' => 0,
         'estimated_items' => 0,
         'returns' => 0,
+        'opnames' => 0,
     ];
 
     /**
@@ -188,8 +222,10 @@ class FifoCostService
             $this->replayTimeline($scope);
             $this->persistLayerRemaining();
             $this->applyReturnAdjustments();
+            $this->persistOpnameCosts($scope);
             $this->syncProductCosts($scope);
             $this->syncFinancialReports($scope);
+            $this->syncOpnameFinancialReports($scope);
         });
 
         return $this->stats;
@@ -432,12 +468,14 @@ class FifoCostService
         if ($scope === null) {
             DB::table('cost_consumptions')->delete();
             DB::table('order_item_costs')->delete();
+            DB::table('stock_opname_cost_layers')->delete();
             DB::table('cost_layers')->delete();
 
             return;
         }
 
         DB::table('cost_consumptions')->whereIn('product_id', $scope)->delete();
+        DB::table('stock_opname_cost_layers')->whereIn('product_id', $scope)->delete();
         DB::table('cost_layers')->whereIn('product_id', $scope)->delete();
 
         foreach (array_chunk($this->orderItemIdsInScope($scope), 1000) as $chunk) {
@@ -549,6 +587,18 @@ class FifoCostService
                 }
             });
 
+        // --- Stok yang KETEMU LEBIH saat hitung fisik. ---
+        //
+        // Barang ketemu butuh harga, karena batch tanpa harga akan menilai
+        // penjualan berikutnya dengan modal nol. Harganya sudah dibekukan di
+        // stock_opnames.unit_cost waktu barisnya disimpan (default avg cost),
+        // jadi di sini tinggal dipakai — tidak dihitung ulang, supaya angka
+        // laporan lama tidak bergeser setiap ada pembelian baru.
+        //
+        // Tanggalnya akhir hari opname: hitung fisik menilai kondisi setelah
+        // seluruh transaksi hari itu, jadi batch ini duduk di ekor antrian.
+        $this->appendOpnameGainLayers($rows, $scope, $now);
+
         // --- Retur pembelian mengurangi batch purchase item yang sama. ---
         $rows = $this->applyPurchaseReturns($rows);
 
@@ -557,6 +607,47 @@ class FifoCostService
         }
 
         $this->stats['layers'] = count($rows);
+    }
+
+    /**
+     * Tambahkan batch dari baris Stock Opname berstatus Gain.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int>|null  $scope
+     */
+    private function appendOpnameGainLayers(array &$rows, ?array $scope, $now): void
+    {
+        if (! Schema::hasTable('stock_opnames')) {
+            return;
+        }
+
+        DB::table('stock_opnames')
+            ->where('status', 'Gain')
+            ->where('quantity', '>', 0)
+            ->where('unit_cost', '>', 0)
+            ->when($scope !== null, fn ($query) => $query->whereIn('product_id', $scope))
+            // Opname sebelum tanggal mulai pembukuan dilewati: sisanya sudah
+            // terwakili oleh Opening Stock, sama seperti stock in lama.
+            ->when($this->startDate !== null, fn ($query) => $query->whereDate('date', '>=', $this->startDate))
+            ->select('id', 'product_id', 'date', 'quantity', 'unit_cost')
+            ->orderBy('date')
+            ->orderBy('id')
+            ->chunk(1000, function ($opnames) use (&$rows, $now) {
+                foreach ($opnames as $opname) {
+                    $rows[] = [
+                        'product_id' => (int) $opname->product_id,
+                        'source_type' => CostLayer::SOURCE_OPNAME,
+                        'source_id' => (int) $opname->id,
+                        'reference' => 'Stock Opname #'.$opname->id,
+                        'layer_date' => Carbon::parse($opname->date)->endOfDay()->toDateTimeString(),
+                        'qty_in' => (float) $opname->quantity,
+                        'qty_remaining' => (float) $opname->quantity,
+                        'unit_cost' => (float) $opname->unit_cost,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            });
     }
 
     /**
@@ -764,26 +855,31 @@ class FifoCostService
         DB::query()
             ->fromSub($this->timelineQuery($scope), 'e')
             ->orderBy('event_date')
-            ->orderBy('kind')
+            ->orderBy('sort_order')
             ->orderBy('ref_id')
             ->chunk(500, function ($events) {
                 foreach ($events as $event) {
-                    if ($event->kind === 'sale') {
-                        $this->allocateSale($event);
-                    } else {
-                        $this->applyReturn($event);
-                    }
+                    match ($event->kind) {
+                        'sale' => $this->allocateSale($event),
+                        'opname' => $this->applyOpnameLoss($event),
+                        default => $this->applyReturn($event),
+                    };
                 }
             });
 
         $this->flushConsumptions(true);
         $this->flushOrderCosts(true);
+        $this->flushOpnameCosts(true);
     }
 
     /**
-     * Penjualan dan retur digabung jadi satu garis waktu supaya urutannya
-     * benar: stok yang balik dari retur tanggal 5 harus bisa dipakai penjualan
-     * tanggal 6, tapi tidak oleh penjualan tanggal 4.
+     * Penjualan, retur, dan selisih hitung fisik digabung jadi satu garis
+     * waktu supaya urutannya benar: stok yang balik dari retur tanggal 5 harus
+     * bisa dipakai penjualan tanggal 6, tapi tidak oleh penjualan tanggal 4.
+     *
+     * Ketiganya bersaing memakan antrian batch yang sama, jadi urutannya
+     * menentukan harga modal masing-masing. Lihat ORDER_* untuk urutan pada
+     * cap waktu yang sama.
      */
     private function timelineQuery(?array $scope)
     {
@@ -815,6 +911,7 @@ class FifoCostService
             ->when($this->startDate !== null, fn ($query) => $query->where('o.order_date', '>=', $this->startDate))
             ->select([
                 DB::raw("'sale' AS kind"),
+                DB::raw(self::ORDER_SALE.' AS sort_order'),
                 'oi.id AS ref_id',
                 'o.order_date AS event_date',
                 'oi.order_id AS order_id',
@@ -830,10 +927,26 @@ class FifoCostService
                 DB::raw('0 AS defect_quantity'),
             ]);
 
-        if (! Schema::hasTable('sale_return_items')) {
-            return $sales;
+        $timeline = $sales;
+
+        if (Schema::hasTable('sale_return_items')) {
+            $timeline = $timeline->unionAll($this->returnEvents($scope, $inScope));
         }
 
+        if (Schema::hasTable('stock_opnames')) {
+            $timeline = $timeline->unionAll($this->opnameLossEvents($scope));
+        }
+
+        return $timeline;
+    }
+
+    /**
+     * Retur penjualan sebagai kejadian garis waktu.
+     *
+     * @param  array<int>|null  $scope
+     */
+    private function returnEvents(?array $scope, callable $inScope)
+    {
         $returns = DB::table('sale_return_items as sri')
             ->join('sale_returns as sr', 'sr.id', '=', 'sri.sale_return_id')
             ->join('order_items as oi', 'oi.id', '=', 'sri.order_item_id')
@@ -848,6 +961,7 @@ class FifoCostService
             ->when($this->startDate !== null, fn ($query) => $query->where('o.order_date', '>=', $this->startDate))
             ->select([
                 DB::raw("'return' AS kind"),
+                DB::raw(self::ORDER_RETURN.' AS sort_order'),
                 'sri.id AS ref_id',
                 'sr.return_date AS event_date',
                 'oi.order_id AS order_id',
@@ -863,7 +977,47 @@ class FifoCostService
                 'sri.defect_quantity AS defect_quantity',
             ]);
 
-        return $sales->unionAll($returns);
+        return $returns;
+    }
+
+    /**
+     * Selisih KURANG hasil hitung fisik sebagai kejadian garis waktu.
+     *
+     * Barang hilang diperlakukan sama seperti barang terjual: memakan antrian
+     * batch dari yang paling tua. Harga modalnya karena itu tidak pernah
+     * diinput — dia milik batch yang termakan.
+     *
+     * Tanggalnya dijadikan akhir hari supaya seluruh batch yang masuk hari itu
+     * sudah dianggap 'datang' pada saat dihitung. Tanpa itu opname tanggal 5
+     * tidak bisa memakan pembelian tanggal 5, dan selisihnya jatuh ke harga
+     * taksiran padahal batch-nya jelas ada.
+     *
+     * @param  array<int>|null  $scope
+     */
+    private function opnameLossEvents(?array $scope)
+    {
+        return DB::table('stock_opnames as so')
+            ->where('so.status', 'Loss')
+            ->where('so.quantity', '>', 0)
+            ->when($scope !== null, fn ($query) => $query->whereIn('so.product_id', $scope))
+            ->when($this->startDate !== null, fn ($query) => $query->whereDate('so.date', '>=', $this->startDate))
+            ->select([
+                DB::raw("'opname' AS kind"),
+                DB::raw(self::ORDER_OPNAME.' AS sort_order'),
+                'so.id AS ref_id',
+                DB::raw("DATE_FORMAT(so.date, '%Y-%m-%d 23:59:59') AS event_date"),
+                DB::raw('0 AS order_id'),
+                DB::raw('0 AS order_item_id'),
+                'so.product_id AS product_id',
+                DB::raw('NULL AS product_bundle_id'),
+                'so.quantity AS quantity',
+                'so.quantity AS qty_base',
+                DB::raw('1 AS unit_conversion_value'),
+                DB::raw('0 AS subtotal'),
+                DB::raw('0 AS total_after_discount'),
+                DB::raw('0 AS canceled_quantity'),
+                DB::raw('0 AS defect_quantity'),
+            ]);
     }
 
     private function loadBundleComponents(): void
@@ -953,12 +1107,40 @@ class FifoCostService
     private function consume(object $event, int $productId, float $qty): array
     {
         $orderItemId = (int) $event->order_item_id;
-        $remaining = $qty;
         $total = 0.0;
         $estimated = false;
 
+        foreach ($this->takeFromQueue($productId, $qty, (string) $event->event_date) as $take) {
+            $this->pushConsumption($event, $productId, $take['layer'], $take['qty'], $take['cost'], $take['estimated']);
+            $this->rememberAllocation($orderItemId, $productId, $take['layer'], $take['index'], $take['qty'], $take['cost']);
+
+            $total += $take['qty'] * $take['cost'];
+            $estimated = $estimated || $take['estimated'];
+        }
+
+        return [$total, $estimated];
+    }
+
+    /**
+     * Ambil $qty dari antrian batch satu produk, batch tertua dulu.
+     *
+     * Ini satu-satunya tempat antrian FIFO dikurangi, dipakai bersama oleh
+     * penjualan dan oleh selisih kurang hasil hitung fisik — keduanya memang
+     * kejadian yang sama dari sisi persediaan: barang keluar.
+     *
+     * Kuantitas yang tidak tertutup batch mana pun tetap dikembalikan, dengan
+     * harga taksiran dan ditandai estimated, supaya barisnya ketahuan dan bisa
+     * dibereskan — bukan hilang diam-diam bernilai nol.
+     *
+     * @return array<int, array{layer:int|null, index:int|null, qty:float, cost:float, estimated:bool}>
+     */
+    private function takeFromQueue(int $productId, float $qty, string $eventDate): array
+    {
+        $remaining = $qty;
+        $takes = [];
+
         if (isset($this->queues[$productId])) {
-            $this->advanceAvailability($productId, (string) $event->event_date);
+            $this->advanceAvailability($productId, $eventDate);
 
             $limit = $this->available[$productId];
             $queue = &$this->queues[$productId];
@@ -978,10 +1160,14 @@ class FifoCostService
                 $queue[$cursor]['qty'] -= $take;
                 $this->layerRemaining[$layerId] = $queue[$cursor]['qty'];
 
-                $this->pushConsumption($event, $productId, $layerId, $take, $unitCost);
-                $this->rememberAllocation($orderItemId, $productId, $layerId, $cursor, $take, $unitCost);
+                $takes[] = [
+                    'layer' => $layerId,
+                    'index' => $cursor,
+                    'qty' => $take,
+                    'cost' => $unitCost,
+                    'estimated' => false,
+                ];
 
-                $total += $take * $unitCost;
                 $remaining -= $take;
             }
 
@@ -989,20 +1175,17 @@ class FifoCostService
             unset($queue);
         }
 
-        // Batch habis tapi barangnya tetap terjual. Sisanya dinilai dengan harga
-        // taksiran, lalu ditandai supaya ketahuan mana yang perlu dikoreksi
-        // setelah purchase-nya masuk.
         if ($remaining > self::EPSILON) {
-            $fallback = $this->fallbackCost($productId);
-
-            $this->pushConsumption($event, $productId, null, $remaining, $fallback, true);
-            $this->rememberAllocation($orderItemId, $productId, null, null, $remaining, $fallback);
-
-            $total += $remaining * $fallback;
-            $estimated = true;
+            $takes[] = [
+                'layer' => null,
+                'index' => null,
+                'qty' => $remaining,
+                'cost' => $this->fallbackCost($productId),
+                'estimated' => true,
+            ];
         }
 
-        return [$total, $estimated];
+        return $takes;
     }
 
     private function rememberAllocation(int $orderItemId, int $productId, ?int $layerId, ?int $index, float $qty, float $cost): void
@@ -1219,6 +1402,16 @@ class FifoCostService
         $this->orderCostBuffer = [];
     }
 
+    private function flushOpnameCosts(bool $force = false): void
+    {
+        if ($this->opnameCostBuffer === [] || (! $force && count($this->opnameCostBuffer) < self::INSERT_CHUNK)) {
+            return;
+        }
+
+        DB::table('stock_opname_cost_layers')->insert($this->opnameCostBuffer);
+        $this->opnameCostBuffer = [];
+    }
+
     /**
      * Simpan sisa tiap batch. Satu UPDATE ... CASE per 200 layer, bukan satu
      * query per layer: pada data produksi jumlah layer bisa puluhan ribu.
@@ -1253,6 +1446,259 @@ class FifoCostService
                     'returned_cost' => round($adjustment['cost'], 4),
                 ]);
         }
+    }
+
+    // =====================================================================
+    // Selisih hasil hitung fisik (Stock Opname)
+    // =====================================================================
+
+    /**
+     * Keluarkan selisih kurang dari antrian batch, tertua dulu.
+     *
+     * Inilah alasan harga opname tidak perlu diketik: barang hilang tidak punya
+     * harga sendiri, dia membawa harga batch tempat dia dulu masuk. Satu selisih
+     * bisa memakan beberapa batch sekaligus, dan nilainya adalah jumlah bagian
+     * yang termakan di harga masing-masing.
+     *
+     * Efek sampingnya sengaja: avg cost sisa stok BERGESER setelah opname,
+     * karena komposisi batch-nya berubah. Itu memang yang benar -- avg cost di
+     * sistem ini turunan dari sisa batch, bukan angka yang disimpan sendiri.
+     */
+    private function applyOpnameLoss(object $event): void
+    {
+        $productId = (int) $event->product_id;
+        $qty = (float) $event->quantity;
+
+        if ($productId <= 0 || $qty <= 0) {
+            return;
+        }
+
+        $opnameId = (int) $event->ref_id;
+        $now = now();
+        $total = 0.0;
+        $estimated = false;
+
+        foreach ($this->takeFromQueue($productId, $qty, (string) $event->event_date) as $take) {
+            $subtotal = $take['qty'] * $take['cost'];
+
+            $this->opnameCostBuffer[] = [
+                'stock_opname_id' => $opnameId,
+                'product_id' => $productId,
+                'cost_layer_id' => $take['layer'],
+                'qty' => round($take['qty'], 4),
+                'unit_cost' => round($take['cost'], 5),
+                'subtotal' => round($subtotal, 4),
+                'is_estimated' => $take['estimated'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            $total += $subtotal;
+            $estimated = $estimated || $take['estimated'];
+        }
+
+        $this->opnameTotals[$opnameId] = [
+            'qty' => $qty,
+            'value' => round($total, 4),
+            'unit_cost' => round($total / $qty, 5),
+            'source' => StockOpname::COST_FIFO,
+            'estimated' => $estimated,
+        ];
+
+        $this->stats['opnames']++;
+
+        $this->flushOpnameCosts();
+    }
+
+    /**
+     * Tulis balik harga modal hasil hitungan ke baris opname.
+     *
+     * Loss : unit_cost, cost_value, dan cost_source seluruhnya turunan, jadi
+     *        ditimpa tiap rebuild.
+     * Gain : unit_cost-nya masukan, jangan disentuh. Yang dihitung di sini cuma
+     *        nilai rupiahnya, dan rincian batch yang dilahirkannya.
+     *
+     * @param  array<int>|null  $scope
+     */
+    private function persistOpnameCosts(?array $scope): void
+    {
+        if (! Schema::hasTable('stock_opnames')) {
+            return;
+        }
+
+        $this->flushOpnameCosts(true);
+
+        $now = now();
+
+        foreach ($this->opnameTotals as $opnameId => $total) {
+            DB::table('stock_opnames')->where('id', $opnameId)->update([
+                'unit_cost' => $total['unit_cost'],
+                'cost_value' => $total['value'],
+                'cost_source' => $total['source'],
+                'is_estimated' => $total['estimated'],
+                'updated_at' => $now,
+            ]);
+        }
+
+        $gainRows = [];
+
+        DB::table('cost_layers')
+            ->where('source_type', CostLayer::SOURCE_OPNAME)
+            ->when($scope !== null, fn ($query) => $query->whereIn('product_id', $scope))
+            ->select('id', 'product_id', 'source_id', 'qty_in', 'unit_cost')
+            ->orderBy('id')
+            ->chunk(1000, function ($layers) use (&$gainRows, $now) {
+                foreach ($layers as $layer) {
+                    // qty_in, bukan qty_remaining: yang dicatat adalah nilai
+                    // barang SAAT ketemu. Berapa yang terjual sesudahnya bukan
+                    // urusan baris opname ini.
+                    $qty = (float) $layer->qty_in;
+                    $cost = (float) $layer->unit_cost;
+
+                    $gainRows[] = [
+                        'stock_opname_id' => (int) $layer->source_id,
+                        'product_id' => (int) $layer->product_id,
+                        'cost_layer_id' => (int) $layer->id,
+                        'qty' => round($qty, 4),
+                        'unit_cost' => round($cost, 5),
+                        'subtotal' => round($qty * $cost, 4),
+                        'is_estimated' => false,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+
+                    DB::table('stock_opnames')->where('id', (int) $layer->source_id)->update([
+                        'cost_value' => round($qty * $cost, 4),
+                        'is_estimated' => false,
+                        'updated_at' => $now,
+                    ]);
+                }
+            });
+
+        foreach (array_chunk($gainRows, self::INSERT_CHUNK) as $chunk) {
+            DB::table('stock_opname_cost_layers')->insert($chunk);
+        }
+    }
+
+    /**
+     * Catat selisih opname sebagai beban di financial_reports.
+     *
+     * Sengaja TIDAK masuk kolom cogs: selisih hitung fisik itu susut atau
+     * kelalaian, bukan harga pokok barang yang terjual. Kalau dicampur ke COGS,
+     * margin penjualan ikut tercemar dan trennya tidak bisa dilihat sendiri.
+     *
+     * Loss menambah beban, Gain menguranginya. Halaman Profit & Loss menjumlah
+     * seluruh kolom expense apa pun transaction_type-nya, jadi baris ini
+     * langsung terbaca di sana tanpa perubahan lain.
+     *
+     * @param  array<int>|null  $scope
+     */
+    private function syncOpnameFinancialReports(?array $scope): void
+    {
+        if (! Schema::hasTable('stock_opnames')) {
+            return;
+        }
+
+        $opnames = DB::table('stock_opnames')
+            ->when($scope !== null, fn ($query) => $query->whereIn('product_id', $scope))
+            ->select('id', 'date', 'status', 'quantity', 'cost_value', 'notes')
+            ->orderBy('id')
+            ->get();
+
+        $ids = $opnames->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        // Baris lama dibuang dulu supaya rebuild tidak menumpuk beban ganda.
+        // Sekalian yang yatim: opname yang sudah dihapus tidak boleh
+        // meninggalkan beban menggantung di laporan.
+        DB::table('financial_reports')
+            ->where('transaction_type', self::FINANCIAL_TYPE_OPNAME)
+            ->where('reference_table', 'stock_opnames')
+            ->where(function ($query) use ($ids) {
+                $query->whereNotIn(
+                    'reference_id',
+                    DB::table('stock_opnames')->select('id')
+                );
+
+                if ($ids !== []) {
+                    $query->orWhereIn('reference_id', $ids);
+                }
+            })
+            ->delete();
+
+        $rows = [];
+        $now = now();
+
+        foreach ($opnames as $opname) {
+            $value = round((float) $opname->cost_value, 2);
+
+            if (abs($value) < 0.01) {
+                continue;
+            }
+
+            $expense = strcasecmp((string) $opname->status, 'Gain') === 0 ? -$value : $value;
+
+            $rows[] = [
+                'date' => Carbon::parse($opname->date)->toDateString(),
+                'transaction_type' => self::FINANCIAL_TYPE_OPNAME,
+                'reference_id' => (int) $opname->id,
+                'reference_table' => 'stock_opnames',
+                'revenue' => 0,
+                'cogs' => 0,
+                'cogs_fixed_cost' => 0,
+                'gross_profit' => 0,
+                'gross_profit_at_fixed_cost' => 0,
+                'expense' => $expense,
+                'net_profit' => -$expense,
+                'net_profit_at_fixed_cost' => -$expense,
+                'notes' => trim('Selisih Stock Opname '.$opname->status.' '
+                    .number_format((float) $opname->quantity, 0, ',', '.').' pcs. '
+                    .(string) $opname->notes),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        foreach (array_chunk($rows, self::INSERT_CHUNK) as $chunk) {
+            DB::table('financial_reports')->insert($chunk);
+        }
+    }
+
+    /**
+     * Harga modal produk saat ini beserta dari mana angkanya datang.
+     *
+     * Dipakai layar Stock Opname untuk mengusulkan harga batch baru ketika
+     * barang ketemu lebih. Urutannya: rata-rata tertimbang SISA batch (itulah
+     * "avg cost" yang benar menurut FIFO), lalu harga batch terakhir kalau
+     * stoknya sudah habis, lalu avg_cost tersimpan sebagai cadangan terakhir.
+     *
+     * @return array{0: float, 1: string} harga, dan sumbernya (StockOpname::COST_*)
+     */
+    public function currentCost(int $productId): array
+    {
+        $row = DB::table('cost_layers')
+            ->where('product_id', $productId)
+            ->selectRaw('SUM(qty_remaining) AS qty, SUM(qty_remaining * unit_cost) AS value')
+            ->first();
+
+        $qty = (float) ($row->qty ?? 0);
+
+        if ($qty > self::EPSILON) {
+            return [round(((float) $row->value) / $qty, 2), StockOpname::COST_AVG];
+        }
+
+        $last = (float) (DB::table('cost_layers')
+            ->where('product_id', $productId)
+            ->orderByDesc('layer_date')
+            ->orderByDesc('id')
+            ->value('unit_cost') ?? 0);
+
+        if ($last > 0) {
+            return [round($last, 2), StockOpname::COST_LAST];
+        }
+
+        $stored = (float) (DB::table('products')->where('id', $productId)->value('avg_cost') ?? 0);
+
+        return [round($stored, 2), StockOpname::COST_AVG];
     }
 
     /**

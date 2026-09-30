@@ -3,6 +3,7 @@
     $paid = (float) $bill->paid_amount;
     $label = $bill->waybill_number ?: 'Tanpa No. Surat Jalan';
     $historyUrl = url('/erp/purchases/freight-payments/payment-history') . '?waybill_key=' . urlencode($bill->waybill_key);
+    $documentCount = (int) ($bill->document_count ?? 0);
 @endphp
 
 <div class="dropdown">
@@ -30,6 +31,32 @@
                 @endif
             </div>
 
+            {{--
+                Foto dokumen stock in. Bukan salinan: yang ditampilkan kolom
+                waybill_image / receipt_image milik inventory_stock_ins_2, jadi
+                fotonya tetap satu tempat dan kalau diganti dari halaman Stock
+                In yang tampil di sini ikut berubah.
+            --}}
+            <div class="action-col">
+                <div class="action-title">Dokumen</div>
+                @if ($documentCount > 0)
+                    <li>
+                        <button type="button" class="dropdown-item btn-freight-documents"
+                            data-waybill-key="{{ $bill->waybill_key }}" data-waybill-number="{{ $label }}"
+                            data-supplier="{{ $bill->supplier_name }}">
+                            <i class="feather feather-image me-3"></i>
+                            <span>Lihat Foto Dokumen ({{ $documentCount }})</span>
+                        </button>
+                    </li>
+                @else
+                    <li>
+                        <span class="dropdown-item text-muted">
+                            <i class="feather feather-image me-3"></i>
+                            <span>Belum ada foto dokumen</span>
+                        </span>
+                    </li>
+                @endif
+            </div>
             <div class="action-col">
                 <div class="action-title">Riwayat</div>
                 <li>

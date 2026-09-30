@@ -39,6 +39,7 @@ class RebuildFifoCost extends Command
                 ['Baris penjualan dihitung', number_format($stats['order_items'])],
                 ['Alokasi batch (cost_consumptions)', number_format($stats['consumptions'])],
                 ['Retur penjualan dikembalikan ke batch', number_format($stats['returns'])],
+                ['Selisih stock opname dinilai', number_format($stats['opnames'])],
                 ['Baris dengan modal taksiran', number_format($stats['estimated_items'])],
             ]
         );
