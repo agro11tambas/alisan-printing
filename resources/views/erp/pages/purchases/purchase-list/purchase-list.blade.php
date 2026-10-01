@@ -247,6 +247,7 @@
                                                 <th data-column="total_amount_product">Product Total</th>
                                                 <th data-column="paid_amount_product">Product Paid</th>
                                                 <th data-column="payment_status">Status</th>
+                                                <th data-column="quantity_verified">Qty Verified</th>
                                                 <th>User</th>
                                             </tr>
                                         </thead>
@@ -280,6 +281,49 @@
 @endsection
 
 @push('modals')
+    <div class="modal fade" id="modalVerifyQuantity" tabindex="-1" aria-labelledby="verifyQuantityLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" id="formVerifyQuantity">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title text-white" id="verifyQuantityLabel">Verifikasi Quantity</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">
+                            Verifikasi quantity Purchase List <strong id="verifyQuantityNumber"></strong>?
+                        </p>
+                        {{-- Daftar qty ditampilkan supaya bisa dicocokkan dulu sebelum diklik. --}}
+                        <div class="table-responsive mb-2">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th class="text-end">Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="verifyQuantityItems"></tbody>
+                            </table>
+                        </div>
+                        <div class="alert alert-warning mb-0">
+                            Verifikasi ini adalah penanda bahwa quantity sudah dicek dan benar. Tidak
+                            mengunci edit, hapus, maupun Stock In, dan belum dapat dibatalkan.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="feather-check-circle me-2"></i>Ya, Verifikasi
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalDeletePurchase" tabindex="-1" aria-labelledby="deleteModalLabel"
         aria-hidden="true">
         <div class="modal-dialog">
@@ -749,6 +793,10 @@
                     {
                         data: 'payment_status',
                         name: 'payment_status'
+                    },
+                    {
+                        data: 'quantity_verified',
+                        name: 'quantity_verified'
                     },
                     {
                         data: 'user'
@@ -1328,6 +1376,7 @@
                 setCell('paid_amount_product', payload.paid_amount_product_html);
                 setCell('paid_amount_freight', payload.paid_amount_freight_html);
                 setCell('payment_status', payload.payment_status_html);
+                setCell('quantity_verified', payload.quantity_verified_html);
 
                 // Data baris ikut diperbarui supaya menu aksi yang dibuka
                 // setelah ini memakai tombol terbaru (mis. "Mark as Paid"
@@ -1336,6 +1385,7 @@
                 d.paid_amount_product = payload.paid_amount_product_html ?? d.paid_amount_product;
                 d.paid_amount_freight = payload.paid_amount_freight_html ?? d.paid_amount_freight;
                 d.payment_status = payload.payment_status_html ?? d.payment_status;
+                d.quantity_verified = payload.quantity_verified_html ?? d.quantity_verified;
                 if (payload.action_html) d.action = payload.action_html;
                 row.data(d);
 
@@ -1485,6 +1535,82 @@
                             text: xhr.responseJSON?.message ??
                                 'Terjadi kesalahan saat menghapus data'
                         });
+                    }
+                });
+            });
+
+            // ========== VERIFIKASI QUANTITY ==========
+            // Daftar produk diambil dari data baris yang sudah ada, supaya qty-nya
+            // bisa dicocokkan dulu sebelum tombol verifikasi ditekan.
+            $('#modalVerifyQuantity').on('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                if (!button) return;
+
+                const purchaseId = button.getAttribute('data-id');
+
+                $('#formVerifyQuantity')
+                    .attr('action', button.getAttribute('data-url'))
+                    .data('purchase-id', purchaseId);
+                $('#verifyQuantityNumber').text(button.getAttribute('data-number') || '-');
+
+                const row = dataTable.row(function(_, data) {
+                    return String(data.id) === String(purchaseId);
+                });
+                const products = row.node() ? (row.data().products || []) : [];
+
+                const $items = $('#verifyQuantityItems').empty();
+                if (products.length === 0) {
+                    $items.append('<tr><td colspan="2" class="text-muted">Tidak ada produk.</td></tr>');
+                    return;
+                }
+
+                products.forEach(function(product) {
+                    $items.append(
+                        $('<tr>')
+                        .append($('<td>').text(product.name ?? '-'))
+                        .append($('<td class="text-end fw-semibold">').text(product.qty ?? '-'))
+                    );
+                });
+            });
+
+            $('#formVerifyQuantity').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = this;
+                const purchaseId = $(form).data('purchase-id');
+                const submitButton = $(form).find('[type="submit"]');
+
+                submitButton.prop('disabled', true);
+
+                $.ajax({
+                    url: form.action,
+                    type: 'POST',
+                    data: $(form).serialize(),
+                    success: function(res) {
+                        $('#modalVerifyQuantity').modal('hide');
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Quantity berhasil diverifikasi.',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        if (!updatePurchaseRow(purchaseId, res)) {
+                            reloadActiveTab();
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat memverifikasi quantity.'
+                        });
+                    },
+                    complete: function() {
+                        submitButton.prop('disabled', false);
                     }
                 });
             });

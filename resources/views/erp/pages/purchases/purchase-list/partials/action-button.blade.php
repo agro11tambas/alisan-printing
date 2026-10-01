@@ -2,6 +2,19 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
+                {{-- Hanya PL turunan PO, dan hilang begitu quantity-nya terverifikasi. --}}
+                @if ($purchase->canVerifyQuantity())
+                    <li>
+                        <button type="button" class="dropdown-item btn-verify-quantity" data-bs-toggle="modal"
+                            data-bs-target="#modalVerifyQuantity" data-id="{{ $purchase->id }}"
+                            data-number="{{ $purchase->purchase_number }}"
+                            data-url="{{ route('purchase-list.verify-quantity', $purchase->id) }}">
+                            <i class="feather feather-check-circle me-3"></i>
+                            <span>Verifikasi Quantity</span>
+                        </button>
+                    </li>
+                @endif
+
                 @if ($purchase->payment_status !== 'Paid')
                     @if ($purchase->remaining_amount_product > 0)
                         <li>

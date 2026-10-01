@@ -37,8 +37,14 @@ class Purchase extends Model
         'remaining_amount_freight',
         'status',
         'verified',
+        'quantity_verified_at',
+        'quantity_verified_by',
         'image',
         'waybill_image',
+        'invoice_image',
+        'supplier_waybill_number',
+        'expedition_waybill_number',
+        'expedition_waybill_image',
         'supplier_id',
         'transaction_group_id',
         'transaction_type',
@@ -52,6 +58,7 @@ class Purchase extends Model
         'purchase_date' => 'datetime',
         'due_date' => 'datetime',
         'deleted_at' => 'datetime',
+        'quantity_verified_at' => 'datetime',
     ];
 
     /**
@@ -188,6 +195,28 @@ class Purchase extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id')->withTrashed();
+    }
+
+    public function quantityVerifiedBy()
+    {
+        return $this->belongsTo(User::class, 'quantity_verified_by')->withTrashed();
+    }
+
+    /**
+     * Quantity Purchase List sudah diverifikasi. Tanggalnya sekaligus jadi
+     * penandanya, supaya tidak ada flag terpisah yang bisa tidak sinkron.
+     */
+    public function isQuantityVerified(): bool
+    {
+        return $this->quantity_verified_at !== null;
+    }
+
+    /** Verifikasi quantity hanya berlaku untuk Purchase List turunan PO. */
+    public function canVerifyQuantity(): bool
+    {
+        return $this->status === 'Purchase List'
+            && $this->parent_purchase_id !== null
+            && ! $this->isQuantityVerified();
     }
 
     /**

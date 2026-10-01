@@ -14,11 +14,30 @@
     // ditolak, karena post_max_size dihitung untuk seluruh request.
     $imageSlots = max(1, (int) ($slots ?? 1));
     $maxUploadBytes = (int) floor((\App\Support\UploadLimit::maxKilobytes() * 1024) / $imageSlots);
+
+    // Paste dari clipboard (pola sama dengan modal Mark as Paid). Opsional supaya
+    // halaman yang memakai partial ini sebelumnya tidak ikut berubah.
+    $allowPaste = $paste ?? false;
+
+    // Desktop cukup paste saja: kotak pilih file disembunyikan, tapi input-nya
+    // tetap ada karena dialah yang membawa file ke server — baik hasil paste
+    // maupun hasil kamera di HP.
+    $pasteOnly = $allowPaste && ($pasteOnly ?? false);
 @endphp
-<div class="input-group" id="{{ $key }}-file-input-group">
+<div class="input-group @if ($pasteOnly) d-none @endif" id="{{ $key }}-file-input-group">
     <input type="file" class="form-control" id="{{ $field }}" name="{{ $field }}" accept="image/*"
         @if ($capture ?? false) capture="environment" @endif>
 </div>
+
+@if ($allowPaste)
+    <div id="{{ $key }}-paste-area" class="border rounded p-2 text-center @if (! $pasteOnly) mt-2 @endif"
+        tabindex="0" style="cursor: pointer; @if ($pasteOnly) min-height: 96px; @endif">
+        <p class="text-muted small mb-0">
+            Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste gambar
+            {{ strtolower($captureLabel) }}
+        </p>
+    </div>
+@endif
 
 @if ($capture ?? false)
     <div id="{{ $key }}-mobile-camera" class="d-none">
@@ -196,6 +215,45 @@
                 image.src = imageUrl;
             });
 
+            @if ($allowPaste)
+                // Screenshot dari clipboard dimasukkan ke input file yang sama, jadi
+                // hasil paste ikut lewat pratinjau, putar, dan kompresi di atas.
+                const pasteArea = document.getElementById('{{ $key }}-paste-area');
+
+                pasteArea.addEventListener('click', function() {
+                    pasteArea.focus();
+                });
+
+                pasteArea.addEventListener('paste', function(event) {
+                    const items = event.clipboardData ? event.clipboardData.items : [];
+
+                    for (const item of items) {
+                        if (item.type.indexOf('image') !== 0) continue;
+
+                        const blob = item.getAsFile();
+                        if (!blob) continue;
+
+                        event.preventDefault();
+
+                        // Ekstensi mengikuti tipe aslinya. Kalau dipaksa .jpg,
+                        // file PNG tersimpan dengan nama yang menyesatkan.
+                        const pastedType = blob.type || 'image/png';
+                        const pastedExtension = (pastedType.split('/')[1] || 'png').replace('jpeg', 'jpg');
+
+                        const pastedFile = new File([blob], `{{ $key }}_${Date.now()}.${pastedExtension}`, {
+                            type: pastedType,
+                            lastModified: Date.now()
+                        });
+                        const transfer = new DataTransfer();
+                        transfer.items.add(pastedFile);
+                        input.files = transfer.files;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+
+                        return;
+                    }
+                });
+            @endif
+
             document.getElementById('rotate-{{ $key }}-left').addEventListener('click', function() {
                 if (processing) return;
                 rotation = (rotation + 270) % 360;
@@ -228,6 +286,10 @@
 
                 fileGroup.classList.add('d-none');
                 cameraWrapper.classList.remove('d-none');
+
+                // Di HP fotonya wajib dari kamera langsung, jadi area paste ikut
+                // disembunyikan supaya tidak ada dua jalur yang bersaing.
+                document.getElementById('{{ $key }}-paste-area')?.classList.add('d-none');
 
                 function stopCamera() {
                     if (cameraStream) {

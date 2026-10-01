@@ -170,18 +170,6 @@
                                 <div class="col-lg-12">
                                     <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
-                                            <label for="purchase_number" class="fw-semibold">Invoice Number:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
-                                                <input type="text" class="form-control" id="purchase_number"
-                                                    name="purchase_number"
-                                                    value="{{ old('purchase_number', $purchase->purchase_number) }}">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row mb-2 align-items-center">
-                                        <div class="col-lg-2">
                                             <label for="purchase_date" class="fw-semibold">Purchase Date:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -288,6 +276,117 @@
                                                     Inventory Warehouse
                                                 </option>
                                             </select>
+                                        </div>
+                                    </div>
+                                    {{-- Dokumen fisik yang menyertai barang, dikelompokkan di bagian bawah. --}}
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="purchase_number" class="fw-semibold">Invoice Number:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" id="purchase_number"
+                                                    name="purchase_number"
+                                                    value="{{ old('purchase_number', $purchase->purchase_number) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="invoice_image" class="fw-semibold">Invoice Image</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            @include('erp.pages.purchases.purchase-list.partials.current-document-image', [
+                                                'path' => $purchase->invoice_image,
+                                                'group' => 'invoice-'.$purchase->id,
+                                                'alt' => 'Invoice',
+                                            ])
+                                            @include('erp.pages.inventory.stock-in.partials.image-capture-editor', [
+                                                'key' => 'invoice',
+                                                'field' => 'invoice_image',
+                                                'label' => 'Invoice',
+                                                'capture' => true,
+                                                'paste' => true,
+                                                'pasteOnly' => true,
+                                                'formId' => 'purchaseForm',
+                                                'slots' => 3,
+                                            ])
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="supplier_waybill_number" class="fw-semibold">
+                                                Supplier Waybill Number:
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" id="supplier_waybill_number"
+                                                    name="supplier_waybill_number"
+                                                    value="{{ old('supplier_waybill_number', $purchase->supplier_waybill_number) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="waybill_image" class="fw-semibold">
+                                                Supplier Waybill Image
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            @include('erp.pages.purchases.purchase-list.partials.current-document-image', [
+                                                'path' => $purchase->waybill_image,
+                                                'group' => 'waybill-'.$purchase->id,
+                                                'alt' => 'Surat jalan supplier',
+                                            ])
+                                            @include('erp.pages.inventory.stock-in.partials.image-capture-editor', [
+                                                'key' => 'waybill',
+                                                'field' => 'waybill_image',
+                                                'label' => 'Surat jalan supplier',
+                                                'capture' => true,
+                                                'paste' => true,
+                                                'pasteOnly' => true,
+                                                'formId' => 'purchaseForm',
+                                                'slots' => 3,
+                                            ])
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="expedition_waybill_number" class="fw-semibold">
+                                                Expedition Waybill Number:
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" id="expedition_waybill_number"
+                                                    name="expedition_waybill_number"
+                                                    value="{{ old('expedition_waybill_number', $purchase->expedition_waybill_number) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="expedition_waybill_image" class="fw-semibold">
+                                                Expedition Waybill Image
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            @include('erp.pages.purchases.purchase-list.partials.current-document-image', [
+                                                'path' => $purchase->expedition_waybill_image,
+                                                'group' => 'expedition-waybill-'.$purchase->id,
+                                                'alt' => 'Surat jalan ekspedisi',
+                                            ])
+                                            @include('erp.pages.inventory.stock-in.partials.image-capture-editor', [
+                                                'key' => 'expedition_waybill',
+                                                'field' => 'expedition_waybill_image',
+                                                'label' => 'Surat jalan ekspedisi',
+                                                'capture' => true,
+                                                'paste' => true,
+                                                'pasteOnly' => true,
+                                                'formId' => 'purchaseForm',
+                                                'slots' => 3,
+                                            ])
                                         </div>
                                     </div>
                                     <input type="hidden" name="inventory_warehouse_id" id="inventory_warehouse_id"

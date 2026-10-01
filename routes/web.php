@@ -612,6 +612,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::delete('/erp/purchases/purchase-list/force-delete/{id}', [PurchaseListController::class, 'forceDelete'])->name('purchases.forceDelete');
             Route::post('/erp/purchases/purchase-list/restore/{id}', [PurchaseListController::class, 'restore'])->name('purchases.restore');
             Route::post('/erp/purchases/purchase-list/verify-payment/{groupId}', [PurchaseListController::class, 'verifyPayment'])->name('purchase-list.verify-payment');
+            Route::post('/erp/purchases/purchase-list/verify-quantity/{id}', [PurchaseListController::class, 'verifyQuantity'])->name('purchase-list.verify-quantity');
             Route::post('/erp/purchases/purchase-list/force-delete/{id}', [PurchaseListController::class, 'forceDeleteOwner'])
                 ->name('purchases.purchase-list.forceDeleteOwner')
                 ->middleware('web.auth');

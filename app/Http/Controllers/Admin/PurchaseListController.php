@@ -20,6 +20,7 @@ use App\Models\Supplier;
 use App\Services\ProductCostService;
 use App\Services\PurchaseListForceDeleteService;
 use App\Services\UnitConversionService;
+use App\Support\UploadLimit;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -66,6 +67,7 @@ class PurchaseListController extends Controller
         $purchases = Purchase::with([
             'supplier',
             'user',
+            'quantityVerifiedBy',
             'parentPurchase',
             'purchaseItems.purchaseProduct',
             'purchaseReturn.items',
@@ -274,6 +276,18 @@ class PurchaseListController extends Controller
                     ];
                 })->toArray();
 
+                // ✅ Verifikasi quantity (hanya berlaku untuk PL turunan PO)
+                if (! $purchase->parent_purchase_id) {
+                    $quantityVerifiedHtml = '<span class="text-muted">-</span>';
+                } elseif ($purchase->isQuantityVerified()) {
+                    $quantityVerifiedHtml = '
+                        <div class="badge bg-soft-success text-success">Verified</div>
+                        <div><small class="text-muted">'.e($purchase->quantityVerifiedBy->name ?? '-').'</small></div>
+                        <small class="text-muted">'.$purchase->quantity_verified_at->format('d M Y H:i').'</small>';
+                } else {
+                    $quantityVerifiedHtml = '<div class="badge bg-soft-warning text-warning">Unverified</div>';
+                }
+
                 // 🏷️ Status
                 $status = strtolower($purchase->status);
                 $statusBadge = match ($status) {
@@ -309,6 +323,7 @@ class PurchaseListController extends Controller
                     'paid_amount_freight' => $paidFreightColumn,
                     'remaining_amount_freight' => $remainFreightHtml,
                     'payment_status' => $paymentBadge,
+                    'quantity_verified' => $quantityVerifiedHtml,
                     'payment_method' => $paymentMethod,
                     'products' => $products,
                     'status' => $statusBadge,
@@ -905,6 +920,25 @@ class PurchaseListController extends Controller
         ));
     }
 
+    /** Simpan satu foto ke public/uploads/<folder>, kembalikan path relatifnya. */
+    private function storeUploadedImage($image, string $folder): ?string
+    {
+        if (! $image) {
+            return null;
+        }
+
+        $filename = time().'_'.uniqid().'.'.$image->getClientOriginalExtension();
+        $uploadPath = base_path('public/uploads/'.$folder);
+
+        if (! file_exists($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
+
+        $image->move($uploadPath, $filename);
+
+        return 'uploads/'.$folder.'/'.$filename;
+    }
+
     public function update(Request $request, $id)
     {
         // dd($request->all());
@@ -942,7 +976,17 @@ class PurchaseListController extends Controller
             'unit_conversion_value.*' => 'nullable|numeric|min:0.01',
             'unit_name' => 'nullable|array',
             'unit_name.*' => 'nullable|string',
-        ]);
+
+            // Dokumen fisik yang menyertai barang. Semua opsional; foto lama
+            // dipertahankan kalau tidak ada unggahan baru.
+            'invoice_image' => UploadLimit::imageRule(),
+            'supplier_waybill_number' => 'nullable|string|max:255',
+            'waybill_image' => UploadLimit::imageRule(),
+            'expedition_waybill_number' => 'nullable|string|max:255',
+            'expedition_waybill_image' => UploadLimit::imageRule(),
+        ], UploadLimit::imageMessages('invoice_image')
+            + UploadLimit::imageMessages('waybill_image')
+            + UploadLimit::imageMessages('expedition_waybill_image'));
 
         DB::beginTransaction();
 
@@ -1035,6 +1079,17 @@ class PurchaseListController extends Controller
 
             $stockDestination = $request->stock_destination;
 
+            // Foto hanya diganti kalau user mengunggah yang baru, supaya mengedit
+            // angka saja tidak menghapus dokumen yang sudah terlampir.
+            $invoiceImagePath = $this->storeUploadedImage($request->file('invoice_image'), 'invoice_image')
+                ?? $purchase->invoice_image;
+            $waybillImagePath = $this->storeUploadedImage($request->file('waybill_image'), 'waybill_image')
+                ?? $purchase->waybill_image;
+            $expeditionWaybillImagePath = $this->storeUploadedImage(
+                $request->file('expedition_waybill_image'),
+                'expedition_waybill_image'
+            ) ?? $purchase->expedition_waybill_image;
+
             // ===== 4️⃣ UPDATE PURCHASE HEADER
             $purchase->update([
                 'purchase_number' => $request->purchase_number,
@@ -1052,6 +1107,11 @@ class PurchaseListController extends Controller
                 'remaining_amount_freight' => $remainingFreight,
                 'remaining_amount' => $remainingAmount,
                 'stock_destination' => $stockDestination,
+                'invoice_image' => $invoiceImagePath,
+                'supplier_waybill_number' => $request->supplier_waybill_number,
+                'waybill_image' => $waybillImagePath,
+                'expedition_waybill_number' => $request->expedition_waybill_number,
+                'expedition_waybill_image' => $expeditionWaybillImagePath,
             ]);
 
             // ===== 5️⃣ UPDATE ITEMS
@@ -2400,6 +2460,46 @@ class PurchaseListController extends Controller
 
             return back()->with('error', 'Gagal update payment: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Tandai quantity Purchase List anak sudah dicek dan benar.
+     *
+     * Penanda murni: tidak mengunci edit, hapus, maupun Stock In. Berbeda dari
+     * verifyPayment() yang menyentuh kolom `verified` untuk pembayaran.
+     */
+    public function verifyQuantity($id)
+    {
+        $purchase = Purchase::where('status', 'Purchase List')->findOrFail($id);
+
+        if (! $purchase->parent_purchase_id) {
+            return response()->json([
+                'message' => 'Verifikasi quantity hanya untuk Purchase List turunan Purchase Order.',
+            ], 422);
+        }
+
+        if ($purchase->isQuantityVerified()) {
+            return response()->json([
+                'message' => 'Quantity Purchase List ini sudah diverifikasi.',
+            ], 422);
+        }
+
+        $purchase->update([
+            'quantity_verified_at' => now(),
+            'quantity_verified_by' => auth()->id(),
+        ]);
+
+        $purchase->load('quantityVerifiedBy');
+
+        return response()->json([
+            'message' => 'Quantity berhasil diverifikasi.',
+            // Dipakai untuk memperbarui baris di tempat, pola sama dengan Mark as Paid.
+            'quantity_verified_html' => '
+                <div class="badge bg-soft-success text-success">Verified</div>
+                <div><small class="text-muted">'.e($purchase->quantityVerifiedBy->name ?? '-').'</small></div>
+                <small class="text-muted">'.$purchase->quantity_verified_at->format('d M Y H:i').'</small>',
+            'action_html' => $this->renderActionButton($purchase),
+        ]);
     }
 
     public function verifyPayment($groupId)

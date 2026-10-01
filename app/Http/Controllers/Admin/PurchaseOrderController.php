@@ -20,6 +20,7 @@ use App\Services\PurchaseNumberService;
 use App\Services\PurchaseOrderForceDeleteService;
 use App\Services\UnitConversionService;
 use App\Support\ExportPeriod;
+use App\Support\UploadLimit;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -1346,6 +1347,25 @@ class PurchaseOrderController extends Controller
         }
     }
 
+    /** Simpan satu foto ke public/uploads/<folder>, kembalikan path relatifnya. */
+    private function storeUploadedImage($image, string $folder): ?string
+    {
+        if (! $image) {
+            return null;
+        }
+
+        $filename = time().'_'.uniqid().'.'.$image->getClientOriginalExtension();
+        $uploadPath = base_path('public/uploads/'.$folder);
+
+        if (! file_exists($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
+
+        $image->move($uploadPath, $filename);
+
+        return 'uploads/'.$folder.'/'.$filename;
+    }
+
     private function createPurchaseListFromOrder(Request $request, int $id)
     {
         $validated = $request->validate([
@@ -1368,8 +1388,16 @@ class PurchaseOrderController extends Controller
             'freight.*' => 'nullable|numeric|min:0',
             'tax_percent' => 'nullable|numeric|min:0',
             'stock_destination' => 'required|in:warehouse,production',
-            'waybill_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
-        ]);
+            // Dokumen fisik yang menyertai barang. Nomor dan fotonya opsional
+            // karena tidak selalu sudah ada saat Purchase List dibuat.
+            'invoice_image' => UploadLimit::imageRule(),
+            'supplier_waybill_number' => 'nullable|string|max:255',
+            'waybill_image' => UploadLimit::imageRule(),
+            'expedition_waybill_number' => 'nullable|string|max:255',
+            'expedition_waybill_image' => UploadLimit::imageRule(),
+        ], UploadLimit::imageMessages('invoice_image')
+            + UploadLimit::imageMessages('waybill_image')
+            + UploadLimit::imageMessages('expedition_waybill_image'));
 
         DB::beginTransaction();
 
@@ -1433,20 +1461,14 @@ class PurchaseOrderController extends Controller
                 throw new \RuntimeException('Isi minimal satu quantity produk untuk membuat Purchase List.');
             }
 
-            // Waybill difoto/diupload saat Purchase List dibuat (pola sama dengan Stock In).
-            $waybillImagePath = null;
-            if ($request->hasFile('waybill_image')) {
-                $image = $request->file('waybill_image');
-                $filename = time().'_'.uniqid().'.'.$image->getClientOriginalExtension();
-                $uploadPath = base_path('public/uploads/waybill_image');
-
-                if (! file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
-                }
-
-                $image->move($uploadPath, $filename);
-                $waybillImagePath = 'uploads/waybill_image/'.$filename;
-            }
+            // Invoice dan surat jalan difoto/diupload saat Purchase List dibuat
+            // (pola sama dengan Stock In).
+            $invoiceImagePath = $this->storeUploadedImage($request->file('invoice_image'), 'invoice_image');
+            $waybillImagePath = $this->storeUploadedImage($request->file('waybill_image'), 'waybill_image');
+            $expeditionWaybillImagePath = $this->storeUploadedImage(
+                $request->file('expedition_waybill_image'),
+                'expedition_waybill_image'
+            );
 
             // Stock destination ditentukan di form Purchase List (PO tidak lagi menyimpannya).
             $stockDestination = $validated['stock_destination'];
@@ -1485,7 +1507,11 @@ class PurchaseOrderController extends Controller
                 'paid_amount' => 0,
                 'remaining_amount' => $grandTotal,
                 'notes' => $request->notes,
+                'invoice_image' => $invoiceImagePath,
+                'supplier_waybill_number' => $validated['supplier_waybill_number'] ?? null,
                 'waybill_image' => $waybillImagePath,
+                'expedition_waybill_number' => $validated['expedition_waybill_number'] ?? null,
+                'expedition_waybill_image' => $expeditionWaybillImagePath,
                 'user_id' => auth()->id(),
             ]);
 

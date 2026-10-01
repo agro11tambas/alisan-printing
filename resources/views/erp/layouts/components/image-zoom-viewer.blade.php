@@ -30,7 +30,9 @@
         position: fixed;
         inset: 0;
         z-index: 20000;
-        background: rgba(15, 15, 18, .92);
+        /* Tembus pandang tapi tetap agak gelap, supaya halaman di belakangnya
+           masih terlihat tanpa mengganggu fotonya. */
+        background: rgba(15, 15, 18, .55);
         display: none;
         touch-action: none;
         user-select: none;
@@ -38,6 +40,15 @@
 
     .izv.izv-open {
         display: block;
+    }
+
+    /* Lightbox lama masih dimuat dan sesekali kebagian membuka lampiran yang
+       bukan gambar. Latarnya disamakan di sini supaya tidak ada satu pun
+       penampil yang masih hitam pekat, tanpa mengubah file vendor. */
+    .lightboxOverlay {
+        background-color: rgba(15, 15, 18, .55) !important;
+        opacity: 1 !important;
+        filter: none !important;
     }
 
     .izv-stage {
@@ -80,7 +91,7 @@
         gap: 6px;
         padding: 6px 10px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, .12);
+        background: rgba(15, 15, 18, .55);
     }
 
     .izv-btn {
@@ -89,7 +100,7 @@
         padding: 0 12px;
         border: 0;
         border-radius: 999px;
-        background: rgba(255, 255, 255, .18);
+        background: rgba(15, 15, 18, .62);
         color: #fff;
         font-size: 20px;
         line-height: 1;
@@ -101,7 +112,7 @@
     }
 
     .izv-btn:hover {
-        background: rgba(255, 255, 255, .32);
+        background: rgba(15, 15, 18, .82);
         color: #fff;
     }
 
@@ -126,7 +137,7 @@
         height: 42px;
         border: 0;
         border-radius: 50%;
-        background: rgba(255, 255, 255, .18);
+        background: rgba(15, 15, 18, .62);
         color: #fff;
         font-size: 26px;
         line-height: 1;
@@ -134,7 +145,7 @@
     }
 
     .izv-close:hover {
-        background: rgba(255, 255, 255, .32);
+        background: rgba(15, 15, 18, .82);
     }
 
     .izv-nav {
@@ -145,7 +156,7 @@
         height: 60px;
         border: 0;
         border-radius: 8px;
-        background: rgba(255, 255, 255, .14);
+        background: rgba(15, 15, 18, .62);
         color: #fff;
         font-size: 22px;
         cursor: pointer;
@@ -153,7 +164,7 @@
     }
 
     .izv-nav:hover {
-        background: rgba(255, 255, 255, .3);
+        background: rgba(15, 15, 18, .82);
     }
 
     .izv-prev {
@@ -173,7 +184,12 @@
         top: 18px;
         left: 50%;
         transform: translateX(-50%);
-        color: rgba(255, 255, 255, .65);
+        /* Teks ini melayang langsung di atas latar yang tembus pandang, jadi
+           butuh alas sendiri supaya tetap terbaca di halaman yang terang. */
+        background: rgba(15, 15, 18, .55);
+        padding: 4px 12px;
+        border-radius: 999px;
+        color: rgba(255, 255, 255, .85);
         font-size: 12px;
         text-align: center;
         pointer-events: none;
