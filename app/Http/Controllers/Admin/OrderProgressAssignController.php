@@ -1062,7 +1062,11 @@ class OrderProgressAssignController extends Controller
             ->join('order_items as oi', 'oi.id', '=', 'opi.order_item_id')
             ->join('product_bundle_items as pbi', function ($join) {
                 $join->on('pbi.bundle_id', '=', 'oi.product_bundle_id')
-                    ->on('pbi.product_id', '=', 'opa.product_id')
+                    // 🔧 opa.product_id kolom tambahan & bisa NULL (data lama).
+                    //    Kalau dipakai langsung, join gagal match dan produk
+                    //    secondary lolos ikut dihitung ke TOTAL QTY. Sumber
+                    //    kebenarannya order_progress_items.product_id.
+                    ->whereRaw('pbi.product_id = COALESCE(opa.product_id, opi.product_id)')
                     ->whereNull('pbi.deleted_at');
             })
             ->whereIn('opa.id', $assigns->pluck('id'))
