@@ -1456,9 +1456,9 @@ class FifoCostService
      * Keluarkan selisih kurang dari antrian batch, tertua dulu.
      *
      * Inilah alasan harga opname tidak perlu diketik: barang hilang tidak punya
-     * harga sendiri, dia membawa harga batch tempat dia dulu masuk. Satu selisih
-     * bisa memakan beberapa batch sekaligus, dan nilainya adalah jumlah bagian
-     * yang termakan di harga masing-masing.
+     * harga sendiri, dia membawa harga batch tertua yang masih tersisa. Satu
+     * selisih bisa memakan beberapa batch sekaligus, tapi seluruh qty-nya
+     * dinilai di harga batch pertama yang termakan.
      *
      * Efek sampingnya sengaja: avg cost sisa stok BERGESER setelah opname,
      * karena komposisi batch-nya berubah. Itu memang yang benar -- avg cost di
@@ -1475,34 +1475,40 @@ class FifoCostService
 
         $opnameId = (int) $event->ref_id;
         $now = now();
-        $total = 0.0;
-        $estimated = false;
 
-        foreach ($this->takeFromQueue($productId, $qty, (string) $event->event_date) as $take) {
-            $subtotal = $take['qty'] * $take['cost'];
+        // Antrian tetap dimakan lintas batch supaya sisa qty tiap batch benar,
+        // tapi nilainya sengaja pakai harga batch pertama (tertua) saja untuk
+        // seluruh qty. Konsekuensinya: kalau Loss melewati lebih dari satu
+        // batch, beban opname tidak sama persis dengan nilai persediaan yang
+        // keluar dari batch.
+        $takes = $this->takeFromQueue($productId, $qty, (string) $event->event_date);
 
-            $this->opnameCostBuffer[] = [
-                'stock_opname_id' => $opnameId,
-                'product_id' => $productId,
-                'cost_layer_id' => $take['layer'],
-                'qty' => round($take['qty'], 4),
-                'unit_cost' => round($take['cost'], 5),
-                'subtotal' => round($subtotal, 4),
-                'is_estimated' => $take['estimated'],
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-
-            $total += $subtotal;
-            $estimated = $estimated || $take['estimated'];
+        if ($takes === []) {
+            return;
         }
+
+        $first = $takes[0];
+        $unitCost = (float) $first['cost'];
+        $total = $qty * $unitCost;
+
+        $this->opnameCostBuffer[] = [
+            'stock_opname_id' => $opnameId,
+            'product_id' => $productId,
+            'cost_layer_id' => $first['layer'],
+            'qty' => round($qty, 4),
+            'unit_cost' => round($unitCost, 5),
+            'subtotal' => round($total, 4),
+            'is_estimated' => $first['estimated'],
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
 
         $this->opnameTotals[$opnameId] = [
             'qty' => $qty,
             'value' => round($total, 4),
-            'unit_cost' => round($total / $qty, 5),
+            'unit_cost' => round($unitCost, 5),
             'source' => StockOpname::COST_FIFO,
-            'estimated' => $estimated,
+            'estimated' => $first['estimated'],
         ];
 
         $this->stats['opnames']++;
