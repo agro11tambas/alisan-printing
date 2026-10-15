@@ -18,7 +18,8 @@
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-primary edit-item" data-id="{{ $item->id }}"
                         data-product="{{ $item->inventoryItem->product->name ?? '-' }}" data-qty="{{ $item->stock_in }}"
-                        data-notes="{{ $item->notes }}" data-waybill="{{ $waybillNumber ?? '' }}">
+                        data-notes="{{ $item->notes }}" data-waybill="{{ $waybillNumber ?? '' }}"
+                        data-freight="{{ (float) ($item->freight ?? 0) }}">
                         Edit
                     </button>
                 </td>

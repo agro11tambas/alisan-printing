@@ -114,7 +114,12 @@
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
-                <li class="breadcrumb-item">Purchase List</li>
+                <li class="breadcrumb-item"><a href="/erp/purchases/purchase-orders">Purchase Order</a></li>
+                <li class="breadcrumb-item">
+                    <a href="/erp/purchases/purchase-list?purchase_order_id={{ $purchaseOrder->id }}">
+                        {{ $purchaseOrder->purchase_number }}
+                    </a>
+                </li>
                 <li class="breadcrumb-item">Create Purchase List</li>
             </ul>
         </div>
@@ -126,7 +131,8 @@
                     </a>
                 </div>
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="/erp/purchases/purchase-list" class="btn btn-light-brand">
+                    <a href="/erp/purchases/purchase-list?purchase_order_id={{ $purchaseOrder->id }}"
+                        class="btn btn-light-brand">
                         <i class="feather-arrow-left me-2"></i>
                         <span>Back</span>
                     </a>
@@ -146,12 +152,12 @@
 @endsection
 
 @section('content')
-    @if (session('error'))
+    @if (session('error') || $errors->any())
         <script>
             Swal.fire({
                 icon: 'error',
                 title: 'Gagal!',
-                text: "{{ session('error') }}",
+                text: @json(session('error') ?? $errors->first()),
             });
         </script>
     @endif
@@ -162,6 +168,7 @@
                     enctype="multipart/form-data">
                     @csrf
                     @method('POST')
+                    <input type="hidden" name="purchase_order_id" value="{{ $purchaseOrder->id }}">
                     <div class="card stretch stretch-full">
                         <div class="card-body">
                             <div class="row">
@@ -215,28 +222,10 @@
                                             <label for="suppliers" class="fw-semibold">Supplier:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
-                                                @php
-                                                    $bgColors = [
-                                                        'bg-danger',
-                                                        'bg-warning',
-                                                        'bg-primary',
-                                                        'bg-indigo',
-                                                        'bg-success',
-                                                    ];
-                                                @endphp
-                                                <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="suppliers" name="suppliers">
-                                                    <option disabled selected hidden>Choose upplier</option>
-                                                    @foreach ($suppliers as $index => $supplier)
-                                                        @php
-                                                            $bg = $bgColors[$index % count($bgColors)];
-                                                        @endphp
-                                                        <option value="{{ $supplier->id }}" data-bg="{{ $bg }}">
-                                                            {{ $supplier->name }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
+                                            {{-- Supplier selalu ikut PO induknya. --}}
+                                            <input type="text" class="form-control" id="supplier_name"
+                                                value="{{ $purchaseOrder->supplier->name ?? '-' }}" readonly>
+                                            <small class="text-muted">PO {{ $purchaseOrder->purchase_number }}</small>
                                         </div>
                                     </div>
                                     <input type="hidden" value="12" name="transaction_type" id="transaction_type">
@@ -263,9 +252,89 @@
                                         <div class="col-lg-10 mb-0">
                                             <select class="form-select" name="stock_destination" id="stock_destination"
                                                 required>
-                                                <option value="production">Production</option>
+                                                <option value="production" selected>Production</option>
                                                 <option value="warehouse">Inventory Warehouse</option>
                                             </select>
+                                        </div>
+                                    </div>
+                                    {{-- Dokumen fisik yang menyertai barang. Semuanya opsional. --}}
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="invoice_image" class="fw-semibold">Invoice Image</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            @include('erp.pages.inventory.stock-in.partials.image-capture-editor', [
+                                                'key' => 'invoice',
+                                                'field' => 'invoice_image',
+                                                'label' => 'Invoice',
+                                                'capture' => true,
+                                                'paste' => true,
+                                                'pasteOnly' => true,
+                                                'formId' => 'purchaseForm',
+                                                'slots' => 3,
+                                            ])
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="supplier_waybill_number" class="fw-semibold">
+                                                Supplier Waybill Number:
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <input type="text" class="form-control" id="supplier_waybill_number"
+                                                name="supplier_waybill_number"
+                                                value="{{ old('supplier_waybill_number') }}">
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="waybill_image" class="fw-semibold">
+                                                Supplier Waybill Image
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            @include('erp.pages.inventory.stock-in.partials.image-capture-editor', [
+                                                'key' => 'waybill',
+                                                'field' => 'waybill_image',
+                                                'label' => 'Surat jalan supplier',
+                                                'capture' => true,
+                                                'paste' => true,
+                                                'pasteOnly' => true,
+                                                'formId' => 'purchaseForm',
+                                                'slots' => 3,
+                                            ])
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="expedition_waybill_number" class="fw-semibold">
+                                                Expedition Waybill Number:
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <input type="text" class="form-control" id="expedition_waybill_number"
+                                                name="expedition_waybill_number"
+                                                value="{{ old('expedition_waybill_number') }}">
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="expedition_waybill_image" class="fw-semibold">
+                                                Expedition Waybill Image
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            @include('erp.pages.inventory.stock-in.partials.image-capture-editor', [
+                                                'key' => 'expedition_waybill',
+                                                'field' => 'expedition_waybill_image',
+                                                'label' => 'Surat jalan ekspedisi',
+                                                'capture' => true,
+                                                'paste' => true,
+                                                'pasteOnly' => true,
+                                                'formId' => 'purchaseForm',
+                                                'slots' => 3,
+                                            ])
                                         </div>
                                     </div>
 
@@ -456,7 +525,7 @@
                     {{-- <div class="card stretch stretch-full">
                     </div> --}}
                     @include('erp.pages.partials.transaction-mobile-actions', [
-                        'backUrl' => '/erp/purchases/purchase-list',
+                        'backUrl' => '/erp/purchases/purchase-list?purchase_order_id=' . $purchaseOrder->id,
                         'formId' => 'purchaseForm',
                         'submitLabel' => 'Store Purchase List',
                     ])
@@ -538,7 +607,14 @@
             row.find('.unit-conversion-value').val('');
             row.find('.unit-name').val('');
 
-            if (!Array.isArray(units) || units.length === 0) return;
+            // Produk tanpa konversi unit tetap bisa dibeli dalam satuan dasar (Pcs).
+            if (!Array.isArray(units) || units.length === 0) {
+                unitSelect.append(`
+            <option value="default" data-unit-name="Pcs" data-conversion-value="1">Pcs</option>
+        `);
+                unitSelect.val('default').trigger('change');
+                return;
+            }
 
             units.forEach(function(unit) {
                 const unitName = unit.unit_name || unit.name || 'PCS';
@@ -614,7 +690,6 @@
 
         $(document).ready(function() {
             initSelect2('.select-product');
-            initSelect2('#suppliers');
 
             $('.price').each(function() {
                 let val = $(this).val().trim();
@@ -754,7 +829,7 @@
         }
 
         $(document).on("change input",
-            "#purchase_number, #purchase_date, #suppliers, #transaction_type, select[name='product[]'], input[name='qty[]'], input[name='price[]']",
+            "#purchase_number, #purchase_date, #transaction_type, select[name='product[]'], input[name='qty[]'], input[name='price[]']",
             function() {
                 if ($(this).hasClass("select2-hidden-accessible")) {
                     $(this).next('.select2').next('.invalid-feedback').remove();
@@ -788,12 +863,6 @@
                 showError(purchaseDate[0], 'Tanggal pembelian wajib diisi');
             }
 
-            const supplier = $('#suppliers');
-            if (!supplier.val()) {
-                isValid = false;
-                showError(supplier[0], 'Supplier wajib dipilih');
-            }
-
             // const editNote = $('#edit_note');
             // if (!editNote.val().trim()) {
             //     isValid = false;
@@ -823,9 +892,10 @@
                     showError(qty[0], 'Qty wajib diisi dan harus lebih dari 0');
                 }
 
-                if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
+                // Harga boleh 0 (bisa dilengkapi lewat edit), tapi tidak boleh negatif.
+                if (!price.val() || parseFloat(unformatRibuan(price.val())) < 0) {
                     isValid = false;
-                    showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
+                    showError(price[0], 'Harga wajib diisi (minimal 0)');
                 }
 
                 if (!unit.val()) {
@@ -849,8 +919,15 @@
             }
 
             $('.qty, .price, .total').each(function() {
-                const val = $(this).val();
-                const num = parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+                const val = ($(this).val() ?? '').toString().trim();
+
+                // Total kosong (harga 0) dianggap 0.
+                if (val === '') {
+                    $(this).val((0).toFixed(5));
+                    return;
+                }
+
+                const num = parseFloat(val.replace(/\./g, '').replace(',', '.'));
                 if (isNaN(num)) {
                     ok = false;
                     $(this).addClass('is-invalid');

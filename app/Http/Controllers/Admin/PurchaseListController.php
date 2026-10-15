@@ -52,7 +52,7 @@ class PurchaseListController extends Controller
         $purchaseOrder = null;
 
         if ($request->integer('purchase_order_id') > 0) {
-            $purchaseOrder = Purchase::where('status', 'Purchase Orders')
+            $purchaseOrder = Purchase::with('supplier:id,name')->where('status', 'Purchase Orders')
                 ->findOrFail($request->integer('purchase_order_id'));
         }
 
@@ -509,8 +509,19 @@ class PurchaseListController extends Controller
     //     return view('erp.pages.purchases.purchase-list.create-purchase', compact('products', 'suppliers', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
     // }
 
-    public function create()
+    public function create(Request $request)
     {
+        // Purchase List selalu dibuat di dalam PO supplier-nya (PO = wadah
+        // grouping per supplier). Supplier PL otomatis ikut supplier PO.
+        $purchaseOrder = Purchase::with('supplier')
+            ->where('status', 'Purchase Orders')
+            ->find($request->integer('purchase_order_id'));
+
+        if (! $purchaseOrder) {
+            return redirect('/erp/purchases/purchase-orders')
+                ->with('error', 'Purchase List harus dibuat dari dalam Purchase Order supplier-nya.');
+        }
+
         $products = Products::with([
             'unitConversions.unit',
         ])
@@ -546,19 +557,10 @@ class PurchaseListController extends Controller
             ];
         })->toArray();
 
-        $suppliers = Supplier::orderBy('name', 'asc')->get();
-
-        $transactionTypes = Account::where('name', 'Purchase')->get();
-        $cashAccounts = Account::where('name', 'Cash')->get();
-        $bankAccounts = Account::where('name', 'Bank')->get();
-
         return view('erp.pages.purchases.purchase-list.create-purchase', compact(
             'products',
             'productsJson',
-            'suppliers',
-            'transactionTypes',
-            'cashAccounts',
-            'bankAccounts'
+            'purchaseOrder'
         ));
     }
 
@@ -573,238 +575,212 @@ class PurchaseListController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
+            'purchase_order_id' => 'required|integer',
             'purchase_number' => 'required|string|unique:purchases,purchase_number',
             'purchase_date' => 'required|date_format:Y-m-d\TH:i',
             'due_date_option' => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date' => 'nullable|date',
-            'suppliers' => 'required|exists:suppliers,id',
             'product' => 'required|array',
-            'product.*' => 'exists:products,id',
+            'product.*' => 'required|integer|exists:products,id',
             'qty' => 'required|array',
-            'qty.*' => 'numeric|min:1',
+            'qty.*' => 'numeric|gt:0',
             'price' => 'required|array',
             'price.*' => 'numeric|min:0',
-            'freight' => 'nullable|array',
-            'freight.*' => 'nullable|numeric|min:0',
-            'total' => 'required|array',
-            'total.*' => 'numeric|min:0',
-            'sub_total' => 'required|numeric|min:0',
-            'tax_percent' => 'nullable|numeric|min:0',
-            'tax_amount' => 'nullable|numeric|min:0',
-            'total_amount_product' => 'required|numeric|min:0',
-            'total_amount_freight' => 'nullable|numeric|min:0',
-            'total_amount' => 'required|numeric|min:0',
-            'stock_destination' => 'required|in:warehouse,production',
             'product_unit_id' => 'nullable|array',
             'product_unit_id.*' => 'nullable',
-            'unit_conversion_value' => 'nullable|array',
-            'unit_conversion_value.*' => 'nullable|numeric|min:0.01',
             'unit_name' => 'nullable|array',
             'unit_name.*' => 'nullable|string',
-        ]);
+            'tax_percent' => 'nullable|numeric|min:0',
+            'stock_destination' => 'required|in:warehouse,production',
+            // Dokumen fisik yang menyertai barang. Nomor dan fotonya opsional
+            // karena tidak selalu sudah ada saat Purchase List dibuat.
+            'invoice_image' => UploadLimit::imageRule(),
+            'supplier_waybill_number' => 'nullable|string|max:255',
+            'waybill_image' => UploadLimit::imageRule(),
+            'expedition_waybill_number' => 'nullable|string|max:255',
+            'expedition_waybill_image' => UploadLimit::imageRule(),
+        ], UploadLimit::imageMessages('invoice_image')
+            + UploadLimit::imageMessages('waybill_image')
+            + UploadLimit::imageMessages('expedition_waybill_image'));
 
         DB::beginTransaction();
 
         try {
-            $purchaseDate = Carbon::parse($request->purchase_date);
+            $order = Purchase::where('status', 'Purchase Orders')
+                ->lockForUpdate()
+                ->findOrFail($validated['purchase_order_id']);
 
-            $dueDate = match ($request->due_date_option) {
-                'today' => $purchaseDate,
+            $purchaseDate = Carbon::parse($validated['purchase_date']);
+            $dueDate = match ($validated['due_date_option'] ?? 'none') {
+                'today' => $purchaseDate->copy(),
                 '1_week' => $purchaseDate->copy()->addWeek(),
                 '1_month' => $purchaseDate->copy()->addMonth(),
                 '3_months' => $purchaseDate->copy()->addMonths(3),
-                'custom' => $request->custom_due_date ? Carbon::parse($request->custom_due_date) : null,
-                default => null
+                'custom' => ! empty($validated['custom_due_date']) ? Carbon::parse($validated['custom_due_date']) : null,
+                default => null,
             };
 
-            $status = 'Purchase List';
-            $paymentStatus = 'Unpaid';
+            $rows = [];
+            $subtotalProduct = 0;
 
-            $totalProduct = $request->total_amount_product;
-            $totalFreight = $request->total_amount_freight ?? 0;
-            $taxPercent = $request->tax_percent ?? 0;
-
-            $taxAmount = ($totalProduct * $taxPercent) / 100;
-
-            $totalProductWithTax = $totalProduct + $taxAmount;
-
-            $grandTotal = $totalProductWithTax + $totalFreight;
-
-            $paidProduct = 0;
-            $remainingProduct = $totalProductWithTax;
-            $paidFreight = 0;
-            $remainingFreight = $totalFreight;
-
-            $purchase = Purchase::create([
-                'purchase_number' => $request->purchase_number,
-                'purchase_date' => $purchaseDate,
-                'due_date' => $dueDate,
-                'supplier_id' => $request->suppliers,
-                'payment_status' => $paymentStatus,
-                'sub_total' => $totalProduct + $totalFreight,
-                'tax_percent' => $taxPercent,
-                'tax_amount' => $taxAmount,
-                'freight_total' => $totalFreight,
-                'total_amount_product' => $totalProductWithTax,
-                'paid_amount_product' => $paidProduct,
-                'remaining_amount_product' => $remainingProduct,
-                'total_amount_freight' => $totalFreight,
-                'paid_amount_freight' => $paidFreight,
-                'remaining_amount_freight' => $remainingFreight,
-                'total_amount' => $grandTotal,
-                'paid_amount' => 0,
-                'remaining_amount' => $grandTotal,
-                'status' => $status,
-                'stock_destination' => $request->stock_destination,
-                'user_id' => Auth::id(),
-            ]);
-
-            $inventoryStatus = match ($request->stock_destination) {
-                'warehouse' => 'Stock In',
-                'production' => 'Stock In Production',
-            };
-
-            foreach ($request->product as $index => $productId) {
-                $qty = (float) $request->qty[$index];
-
+            foreach ($validated['product'] as $index => $productId) {
+                $qty = (float) ($validated['qty'][$index] ?? 0);
+                $price = (float) ($validated['price'][$index] ?? 0);
                 $unit = UnitConversionService::resolve(
                     (int) $productId,
                     $request->product_unit_id[$index] ?? null,
                     $request->unit_name[$index] ?? 'Pcs'
                 );
-                $unitConversionId = $unit['id'];
-                $unitConversionValue = $unit['factor'];
-                $unitName = $unit['unit_name'];
 
-                $qtyBase = $qty * $unitConversionValue;
-                $price = $request->price[$index];
-                $freight = $request->freight[$index] ?? 0;
-                $total = $request->total[$index];
+                $subtotalProduct += $qty * $price;
+                $rows[] = compact('productId', 'qty', 'price', 'unit');
+            }
 
-                $taxPercent = $request->tax_percent ?? 0;
+            // Invoice dan surat jalan difoto/diupload saat Purchase List dibuat
+            // (pola sama dengan Stock In).
+            $invoiceImagePath = $this->storeUploadedImage($request->file('invoice_image'), 'invoice_image');
+            $waybillImagePath = $this->storeUploadedImage($request->file('waybill_image'), 'waybill_image');
+            $expeditionWaybillImagePath = $this->storeUploadedImage(
+                $request->file('expedition_waybill_image'),
+                'expedition_waybill_image'
+            );
 
+            $stockDestination = $validated['stock_destination'];
+            $inventoryWarehouseId = $stockDestination === 'warehouse'
+                ? ($request->inventory_warehouse_id ?? 1)
+                : null;
+            $productionWarehouseId = $stockDestination === 'production'
+                ? ($request->production_warehouse_id ?? 2)
+                : null;
+
+            // Freight tidak diketik di sini, diisi waktu Stock In.
+            $taxPercent = (float) ($validated['tax_percent'] ?? 0);
+            $taxAmount = $subtotalProduct * $taxPercent / 100;
+            $totalProduct = $subtotalProduct + $taxAmount;
+            $grandTotal = $totalProduct;
+
+            $purchaseList = Purchase::create([
+                'parent_purchase_id' => $order->id,
+                'purchase_number' => $validated['purchase_number'],
+                'purchase_date' => $purchaseDate,
+                'due_date' => $dueDate,
+                'supplier_id' => $order->supplier_id,
+                'status' => 'Purchase List',
+                'approval_status' => 'Approved',
+                'payment_status' => 'Unpaid',
+                'stock_destination' => $stockDestination,
+                'sub_total' => $subtotalProduct,
+                'tax_percent' => $taxPercent,
+                'tax_amount' => $taxAmount,
+                'total_amount_product' => $totalProduct,
+                'paid_amount_product' => 0,
+                'remaining_amount_product' => $totalProduct,
+                'total_amount_freight' => 0,
+                'paid_amount_freight' => 0,
+                'remaining_amount_freight' => 0,
+                'total_amount' => $grandTotal,
+                'paid_amount' => 0,
+                'remaining_amount' => $grandTotal,
+                'notes' => $request->notes,
+                'invoice_image' => $invoiceImagePath,
+                'supplier_waybill_number' => $validated['supplier_waybill_number'] ?? null,
+                'waybill_image' => $waybillImagePath,
+                'expedition_waybill_number' => $validated['expedition_waybill_number'] ?? null,
+                'expedition_waybill_image' => $expeditionWaybillImagePath,
+                'user_id' => Auth::id(),
+            ]);
+
+            $inventory = Inventory::create([
+                'purchase_id' => $purchaseList->id,
+                'purchase_number' => $purchaseList->purchase_number,
+                'date' => $purchaseDate,
+                'status' => $stockDestination === 'production' ? 'Stock In Production' : 'Stock In',
+                'note' => 'Purchase Account',
+            ]);
+
+            foreach ($rows as $row) {
+                $qty = $row['qty'];
+                $price = $row['price'];
+                $conversion = (float) $row['unit']['factor'];
+                $qtyBase = $qty * $conversion;
                 $priceAfterTax = $price + ($price * $taxPercent / 100);
-                $finalPrice = $priceAfterTax + $freight;
 
-                $product = Products::findOrFail($productId);
-
-                $purchaseItem = PurchaseItem::create([
-                    'purchase_id' => $purchase->id,
-                    'product_id' => $productId,
-
-                    'product_unit_conversion_id' => $unitConversionId,
-                    'unit_name' => $unitName,
-                    'unit_conversion_value' => $unitConversionValue,
+                $item = PurchaseItem::create([
+                    'purchase_id' => $purchaseList->id,
+                    'product_id' => $row['productId'],
+                    'product_unit_conversion_id' => $row['unit']['id'],
+                    'unit_name' => $row['unit']['unit_name'],
+                    'unit_conversion_value' => $conversion,
                     'qty_base' => $qtyBase,
-
-                    'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
-                        ? ($request->inventory_warehouse_id ?? 1)
-                        : null,
-
-                    'production_warehouse_id' => $request->stock_destination === 'production'
-                        ? ($request->production_warehouse_id ?? 2)
-                        : null,
-
+                    'inventory_warehouse_id' => $inventoryWarehouseId,
+                    'production_warehouse_id' => $productionWarehouseId,
                     'status' => 'Purchase Account',
                     'quantity' => $qty,
                     'price' => $price,
                     'price_after_tax' => $priceAfterTax,
-                    'freight' => $freight,
-                    'final_price' => $finalPrice,
-                    'subtotal' => $total,
+                    'freight' => 0,
+                    'final_price' => $priceAfterTax,
+                    'subtotal' => $qty * $price,
+                    'stock_in' => 0,
                 ]);
 
-                if ($purchase->status === 'Purchase List') {
-                    $inventory = Inventory::firstOrCreate(
-                        ['purchase_id' => $purchase->id],
-                        [
-                            'purchase_number' => $purchase->purchase_number,
-                            'supplier_id' => $purchase->supplier_id,
-                            'date' => $purchase->purchase_date,
-                            'status' => $inventoryStatus,
-                            'note' => 'Purchase Account',
-                        ]
-                    );
+                InventoryItem::create([
+                    'inventory_id' => $inventory->id,
+                    'purchase_item_id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'inventory_warehouse_id' => $item->inventory_warehouse_id,
+                    'production_warehouse_id' => $item->production_warehouse_id,
+                    'quantity' => $qty,
+                    'qty_base' => $qtyBase,
+                    'unit_name' => $item->unit_name,
+                    'unit_conversion_value' => $conversion,
+                    'price' => $price,
+                    'stock_in' => 0,
+                    'remaining_stock_in' => $qtyBase,
+                    'stock_out' => 0,
+                ]);
 
-                    InventoryItem::create([
-                        'inventory_id' => $inventory->id,
-                        'purchase_item_id' => $purchaseItem->id,
-                        'product_id' => $productId,
-
-                        'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
-                            ? ($request->inventory_warehouse_id ?? 1)
-                            : null,
-
-                        'production_warehouse_id' => $request->stock_destination === 'production'
-                            ? ($request->production_warehouse_id ?? 2)
-                            : null,
-
-                        'unit_name' => $unitName,
-                        'unit_conversion_value' => $unitConversionValue,
-                        'qty_base' => $qtyBase,
-
-                        'quantity' => $qty,
-                        'price' => $finalPrice,
-                        'stock_in' => 0,
-                        'remaining_stock_in' => $qtyBase,
-                        'stock_out' => 0,
-                    ]);
-
-                    // 🧩 Update Stock berdasarkan destination
-                    if ($request->stock_destination === 'warehouse') {
-                        $inventoryStock = InventoryStock::firstOrCreate(
-                            [
-                                'product_id' => $productId,
-                                'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
-                            ],
-                            ['incoming_stock' => 0]
-                        );
-
-                        $inventoryStock->increment('incoming_stock', $qtyBase);
-                    }
-
-                    if ($request->stock_destination === 'production') {
-                        $productionStock = ProductionStock::firstOrCreate(
-                            [
-                                'product_id' => $productId,
-                                'production_warehouse_id' => $request->production_warehouse_id ?? 2,
-                            ],
-                            ['incoming_stock' => 0]
-                        );
-
-                        $productionStock->increment('incoming_stock', $qty);
-                    }
+                if ($stockDestination === 'warehouse') {
+                    InventoryStock::firstOrCreate([
+                        'product_id' => $item->product_id,
+                        'inventory_warehouse_id' => $item->inventory_warehouse_id ?? 1,
+                    ], ['incoming_stock' => 0])->increment('incoming_stock', $qtyBase);
+                } else {
+                    ProductionStock::firstOrCreate([
+                        'product_id' => $item->product_id,
+                        'production_warehouse_id' => $item->production_warehouse_id ?? 2,
+                    ], ['incoming_stock' => 0])->increment('incoming_stock', $qtyBase);
                 }
             }
 
-            // =============== ACCOUNT TRANSACTION ===============
-            $groupId = Str::uuid();
-            $purchaseAccount = Account::where('type', 'Purchase Account')->firstOrFail();
+            $purchaseAccount = Account::where('type', 'Purchase Account')->first();
+            if ($purchaseAccount) {
+                AccountTransaction::create([
+                    'purchase_id' => $purchaseList->id,
+                    'account_id' => $purchaseAccount->id,
+                    'purchase_number' => $purchaseList->purchase_number,
+                    'transaction_date' => $purchaseDate,
+                    'debit' => $grandTotal,
+                    'credit' => 0,
+                    'note' => 'Purchase Account Transaction',
+                    'particular' => 'Purchase Invoice',
+                    'transaction_group_id' => Str::uuid(),
+                    'verified' => 1,
+                ]);
+                $purchaseAccount->increment('closing_balance', $grandTotal);
+            }
 
-            AccountTransaction::create([
-                'purchase_id' => $purchase->id,
-                'purchase_number' => $purchase->purchase_number,
-                'transaction_date' => $purchase->purchase_date,
-                'account_id' => $purchaseAccount->id,
-                'debit' => $grandTotal, // hanya product
-                'credit' => 0,
-                'note' => 'Purchase Account Transaction',
-                'particular' => 'Purchase Invoice',
-                'transaction_group_id' => $groupId,
-                'verified' => 1,
-            ]);
-
-            $purchaseAccount->increment('closing_balance', $grandTotal);
-
+            $this->refreshParentPurchaseProgress($order->id);
             DB::commit();
 
-            return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase order created successfully');
-        } catch (\Exception $e) {
+            return redirect('/erp/purchases/purchase-list?purchase_order_id='.$order->id)
+                ->with('success', 'Purchase List dan draft Stock In berhasil dibuat.');
+        } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Purchase store failed: '.$e->getMessage());
+            Log::error('Purchase list store failed', ['message' => $e->getMessage()]);
 
-            return back()->with('error', 'Purchase order failed to create');
+            return back()->withInput()->with('error', $e->getMessage());
         }
     }
 
@@ -908,7 +884,10 @@ class PurchaseListController extends Controller
             ];
         })->toArray();
 
-        $suppliers = Supplier::orderBy('name', 'asc')->get();
+        // PL anak terikat ke supplier PO-nya, jadi pilihan supplier dikunci.
+        $suppliers = $purchase->parent_purchase_id
+            ? Supplier::whereKey($purchase->supplier_id)->get()
+            : Supplier::orderBy('name', 'asc')->get();
 
         return view('erp.pages.purchases.purchase-list.edit-purchase', compact(
             'purchase',
@@ -992,32 +971,12 @@ class PurchaseListController extends Controller
 
         try {
             $purchase = Purchase::with('purchaseItems')->findOrFail($id);
+            // PO cuma wadah per supplier: produk dan qty PL bebas, yang dijaga
+            // hanya supplier-nya tetap sama dengan PO induk.
             if ($purchase->parent_purchase_id) {
-                $parent = Purchase::with('purchaseItems')->findOrFail($purchase->parent_purchase_id);
+                $parent = Purchase::findOrFail($purchase->parent_purchase_id);
                 if ((int) $request->suppliers !== (int) $parent->supplier_id) {
                     throw new \RuntimeException('Supplier PL harus sama dengan supplier PO.');
-                }
-                // PO tidak lagi menyimpan stock destination; batasan ini hanya berlaku
-                // untuk PO lama yang masih punya nilai tersebut.
-                if ($parent->stock_destination && $request->stock_destination !== $parent->stock_destination) {
-                    throw new \RuntimeException('Tujuan stok PL harus sama dengan tujuan stok PO.');
-                }
-
-                foreach ($request->input('product', []) as $index => $productId) {
-                    $existingChildItem = $purchase->purchaseItems->firstWhere('product_id', (int) $productId);
-                    if (! $existingChildItem || ! $existingChildItem->source_purchase_item_id) {
-                        throw new \RuntimeException('Produk baru tidak dapat ditambahkan ke PL turunan PO.');
-                    }
-
-                    $sourceItem = $parent->purchaseItems->firstWhere('id', $existingChildItem->source_purchase_item_id);
-                    $allocatedByOtherLists = (float) PurchaseItem::where('source_purchase_item_id', $sourceItem->id)
-                        ->where('id', '!=', $existingChildItem->id)
-                        ->sum('quantity');
-                    $maximum = max(0, (float) $sourceItem->quantity - $allocatedByOtherLists);
-
-                    if ((float) ($request->qty[$index] ?? 0) > $maximum) {
-                        throw new \RuntimeException("Qty {$sourceItem->purchaseProduct?->name} melebihi sisa PO ({$maximum}).");
-                    }
                 }
             }
 

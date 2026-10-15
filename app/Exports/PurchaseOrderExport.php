@@ -24,7 +24,6 @@ class PurchaseOrderExport extends BaseExcelExport
         'PL Payment',
         'Nama Product',
         'SKU',
-        'PO Qty',
         'Qty',
         'Unit',
         'Unit Price',
@@ -35,21 +34,19 @@ class PurchaseOrderExport extends BaseExcelExport
     ];
 
     /** Kolom milik header PO, di-merge sepanjang seluruh blok PO. */
-    private const PO_COLUMNS = ['A', 'B', 'C', 'D', 'Q'];
+    private const PO_COLUMNS = ['A', 'B', 'C', 'D', 'P'];
 
     /** Kolom milik header Purchase List, di-merge sepanjang blok PL. */
-    private const PL_COLUMNS = ['E', 'F', 'G', 'P'];
+    private const PL_COLUMNS = ['E', 'F', 'G', 'O'];
 
     /** Kolom angka rupiah (1 = A). */
-    private const CURRENCY_COLUMNS = [13, 14, 16, 17];
+    private const CURRENCY_COLUMNS = [12, 13, 15, 16];
 
     /** Kolom teks panjang yang rata kiri: Supplier dan Nama Product. */
     private const TEXT_COLUMNS = [3, 8];
 
     /** Kolom kuantitas. */
-    private const QTY_COLUMNS = ['J', 'K', 'O'];
-
-    private const NOT_VERIFIED_LABEL = 'Belum diverifikasi';
+    private const QTY_COLUMNS = ['J', 'N'];
 
     public function __construct(private Builder $query)
     {
@@ -68,7 +65,6 @@ class PurchaseOrderExport extends BaseExcelExport
         $this->query
             ->with([
                 'supplier:id,name',
-                'purchaseItems.purchaseProduct:id,name,sku',
                 'purchaseLists' => fn ($query) => $query
                     ->where('status', 'Purchase List')
                     ->orderBy('purchase_date')
@@ -94,7 +90,7 @@ class PurchaseOrderExport extends BaseExcelExport
         }
 
         // Auto size mengabaikan isi merge cell, jadi kolom header diberi lebar tetap.
-        $fixedWidths = ['A' => 20, 'B' => 17, 'C' => 22, 'D' => 12, 'E' => 20, 'F' => 17, 'G' => 13, 'P' => 19, 'Q' => 20];
+        $fixedWidths = ['A' => 20, 'B' => 17, 'C' => 22, 'D' => 12, 'E' => 20, 'F' => 17, 'G' => 13, 'O' => 19, 'P' => 20];
 
         foreach ($fixedWidths as $column => $width) {
             $sheet->getColumnDimension($column)->setAutoSize(false);
@@ -115,7 +111,7 @@ class PurchaseOrderExport extends BaseExcelExport
         if ($blocks->isEmpty()) {
             $this->writeRow($sheet, $firstRow, array_merge(
                 $this->purchaseOrderColumns($purchaseOrder),
-                ['-', '-', '-', '-', '-', 0, 0, '-', 0, 0, 0],
+                ['-', '-', '-', '-', '-', 0, '-', 0, 0, 0, 0],
                 [0]
             ));
 
@@ -144,7 +140,7 @@ class PurchaseOrderExport extends BaseExcelExport
 
                 $values = array_merge($values, $itemColumns);
 
-                // Kolom P dan Q hanya diisi di baris pertama tiap blok / PO.
+                // Kolom O dan P hanya diisi di baris pertama tiap blok / PO.
                 $values[] = $index === 0 ? $block['total'] : null;
                 $values[] = $isFirstRowOfOrder ? $orderTotal : null;
 
@@ -169,16 +165,14 @@ class PurchaseOrderExport extends BaseExcelExport
     }
 
     /**
-     * Susun blok baris: satu blok per purchase list, lalu satu blok berisi
-     * sisa qty PO yang belum diverifikasi jadi purchase list.
+     * Susun blok baris: satu blok per purchase list. PO tidak punya item
+     * sendiri (cuma wadah per supplier), jadi tidak ada blok sisa qty PO.
      */
     private function buildBlocks(Purchase $purchaseOrder): Collection
     {
-        $orderItems = $purchaseOrder->purchaseItems->keyBy('id');
-
-        $blocks = $purchaseOrder->purchaseLists->map(function (Purchase $purchaseList) use ($orderItems) {
+        return $purchaseOrder->purchaseLists->map(function (Purchase $purchaseList) {
             $rows = $purchaseList->purchaseItems
-                ->map(fn (PurchaseItem $item) => $this->purchaseListItemColumns($item, $orderItems))
+                ->map(fn (PurchaseItem $item) => $this->purchaseListItemColumns($item))
                 ->values()
                 ->all();
 
@@ -194,29 +188,13 @@ class PurchaseOrderExport extends BaseExcelExport
                 'rows' => $rows,
             ];
         })->filter()->values();
-
-        $remainingRows = $this->remainingRows($purchaseOrder, $orderItems);
-
-        if ($remainingRows !== []) {
-            $blocks->push([
-                'number' => self::NOT_VERIFIED_LABEL,
-                'date' => '-',
-                'payment' => '-',
-                'total' => null,
-                'rows' => $remainingRows,
-            ]);
-        }
-
-        return $blocks;
     }
 
     /**
-     * Kolom H sampai O untuk satu item purchase list.
+     * Kolom H sampai N untuk satu item purchase list.
      */
-    private function purchaseListItemColumns(PurchaseItem $item, Collection $orderItems): array
+    private function purchaseListItemColumns(PurchaseItem $item): array
     {
-        $sourceItem = $orderItems->get($item->source_purchase_item_id);
-
         $quantity = (float) $item->quantity;
         $unitPrice = (float) $item->final_price;
         $totalAmount = (float) $item->subtotal;
@@ -236,48 +214,12 @@ class PurchaseOrderExport extends BaseExcelExport
         return [
             $item->purchaseProduct->name ?? '-',
             $item->purchaseProduct->sku ?? '-',
-            $sourceItem ? (float) $sourceItem->quantity : 0,
             $quantity,
             $item->unit_name ?? '-',
             $unitPrice,
             $totalAmount,
             $stockIn,
         ];
-    }
-
-    /**
-     * Baris untuk qty PO yang belum terserap ke purchase list mana pun.
-     */
-    private function remainingRows(Purchase $purchaseOrder, Collection $orderItems): array
-    {
-        $verifiedBySource = $purchaseOrder->purchaseLists
-            ->flatMap(fn (Purchase $purchaseList) => $purchaseList->purchaseItems)
-            ->groupBy('source_purchase_item_id')
-            ->map(fn (Collection $items) => (float) $items->sum('quantity'));
-
-        return $orderItems
-            ->map(function (PurchaseItem $item) use ($verifiedBySource) {
-                $orderedQty = (float) $item->quantity;
-                $remaining = $orderedQty - $verifiedBySource->get($item->id, 0);
-
-                if ($remaining <= 0) {
-                    return null;
-                }
-
-                return [
-                    $item->purchaseProduct->name ?? '-',
-                    $item->purchaseProduct->sku ?? '-',
-                    $orderedQty,
-                    $remaining,
-                    $item->unit_name ?? '-',
-                    0,
-                    0,
-                    0,
-                ];
-            })
-            ->filter()
-            ->values()
-            ->all();
     }
 
     /**
@@ -315,7 +257,7 @@ class PurchaseOrderExport extends BaseExcelExport
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FF2E5C8A');
 
-        $sheet->getStyle('H1:O1')->getFill()
+        $sheet->getStyle('H1:N1')->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FF3D7AB8');
     }
@@ -330,17 +272,17 @@ class PurchaseOrderExport extends BaseExcelExport
         }
 
         $totalRow = $lastDataRow + 1;
-        $sheet->setCellValue('M'.$totalRow, 'TOTAL');
+        $sheet->setCellValue('L'.$totalRow, 'TOTAL');
 
-        foreach (['N', 'P', 'Q'] as $column) {
+        foreach (['M', 'O', 'P'] as $column) {
             $sheet->setCellValue(
                 $column.$totalRow,
                 '=SUM('.$column.'2:'.$column.$lastDataRow.')'
             );
         }
 
-        $sheet->getStyle('A'.$totalRow.':Q'.$totalRow)->getFont()->setBold(true);
-        $sheet->getStyle('N'.$totalRow.':Q'.$totalRow)
+        $sheet->getStyle('A'.$totalRow.':P'.$totalRow)->getFont()->setBold(true);
+        $sheet->getStyle('M'.$totalRow.':P'.$totalRow)
             ->getNumberFormat()
             ->setFormatCode(self::CURRENCY_FORMAT);
 

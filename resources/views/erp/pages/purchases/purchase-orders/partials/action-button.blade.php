@@ -1,25 +1,6 @@
 <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
-        @if (($purchase->approval_status ?? 'Draft') === 'Draft')
-        <li>
-            <button type="button" class="dropdown-item btn-approve-po"
-                data-bs-toggle="modal" data-bs-target="#modalApprovePurchaseOrder"
-                data-number="{{ $purchase->purchase_number }}"
-                data-url="{{ route('purchase-orders.approve', $purchase->id) }}">
-                <i class="feather feather-check-circle"></i>
-                <span>Verify PO</span>
-            </button>
-        </li>
-        @endif
-        @if (in_array($purchase->approval_status, ['Approved', 'Partial'], true))
-        <li>
-            <a href="/erp/purchases/purchase-orders/mark-as-purchase-list/{{ $purchase->id }}"
-                class="dropdown-item">
-                <i class="feather feather-plus-circle"></i>
-                <span>Create Purchase List</span>
-            </a>
-        </li>
-        @endif
+        {{-- PO cuma wadah per supplier. Create Purchase List ada di halaman Purchase List anaknya. --}}
         @if (Auth::user()->hasSubPermission('purchase-list'))
         <li>
             <a href="/erp/purchases/purchase-list?purchase_order_id={{ $purchase->id }}"
@@ -29,22 +10,8 @@
             </a>
         </li>
         @endif
-        <li>
-            <a href="/erp/purchases/purchase-orders/detail-purchase/{{ $purchase->id }}" class="dropdown-item">
-                <i class="feather feather-eye"></i>
-                <span>Purchase Detail</span>
-            </a>
-        </li>
-        {{-- PO tetap bisa diedit setelah verify; qty yang sudah dibuatkan PL dikunci di form edit. --}}
-        <li>
-            <a class="dropdown-item" href="/erp/purchases/purchase-orders/edit-purchase/{{ $purchase->id }}">
-                <i class="feather feather-edit-3 me-3"></i>
-                <span>Edit</span>
-            </a>
-        </li>
-        {{-- PO yang sudah di-verify tetap boleh dihapus. Tombolnya baru hilang
-             kalau salah satu Purchase List anaknya sudah punya Stock In atau
-             sudah dibayar. --}}
+        {{-- Tombol Delete hilang kalau salah satu Purchase List anaknya sudah
+             punya Stock In atau sudah dibayar. --}}
         @if (!($hasStockIn ?? false) && !($hasPaidPurchaseList ?? false))
             <li>
                 <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"

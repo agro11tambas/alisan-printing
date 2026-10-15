@@ -574,20 +574,14 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
 
     Route::middleware(['web.auth', 'permission:purchases'])->group(function () {
         Route::middleware(['web.auth', 'subpermission:purchase-orders'])->group(function () {
-            Route::get('/erp/purchases/purchase-orders/detail-purchase/{id}', [PurchaseDetailController::class, 'getPurchaseOrderDetail']);
             Route::get('/erp/purchases/purchase-orders/export', [PurchaseOrderController::class, 'exportExcel'])->name('purchase-orders.export');
             Route::get('/erp/purchases/purchase-orders/data', [PurchaseOrderController::class, 'dataPurchaseOrders']);
             Route::get('/erp/purchases/purchase-orders', [PurchaseOrderController::class, 'getPurchaseOrders']);
             Route::get('/erp/purchases/purchase-orders/create-purchase', [PurchaseOrderController::class, 'create']);
             Route::post('/erp/purchases/purchase-orders/store', [PurchaseOrderController::class, 'store']);
-            Route::get('/erp/purchases/purchase-orders/edit-purchase/{id}', [PurchaseOrderController::class, 'edit']);
-            Route::put('/erp/purchases/purchase-orders/update/{id}', [PurchaseOrderController::class, 'update']);
             Route::delete('/erp/purchases/purchase-orders/delete/{id}', [PurchaseOrderController::class, 'delete']);
-            Route::post('/erp/purchases/purchase-orders/approve/{id}', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
             Route::post('/erp/purchases/purchase-orders/force-delete/{id}', [PurchaseOrderController::class, 'forceDeleteOwner'])
                 ->name('purchases.purchase-orders.forceDeleteOwner');
-            Route::get('/erp/purchases/purchase-orders/mark-as-purchase-list/{id}', [PurchaseOrderController::class, 'markAsPurchaseList']);
-            Route::put('/erp/purchases/purchase-orders/mark-as-purchase-list/update/{id}', [PurchaseOrderController::class, 'updatePurchaseList'])->name('purchase-orders.update-purchase-list');
         });
 
         Route::middleware(['web.auth', 'subpermission:purchase-list'])->group(function () {

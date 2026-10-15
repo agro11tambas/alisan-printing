@@ -64,11 +64,15 @@ class Purchase extends Model
     /**
      * Label approval_status yang dipakai di layar. Nilai di database sengaja
      * dibiarkan apa adanya supaya data lama tetap terbaca.
+     *
+     * PO sekarang cuma wadah grouping per supplier (tanpa produk), jadi yang
+     * dipakai tinggal Draft (belum ada PL), Completed PL (ada PL yang masih
+     * berjalan), dan Completed. Approved/Partial hanya ada di data lama.
      */
     public const APPROVAL_STATUS_LABELS = [
-        'Draft' => 'Draft',
-        'Approved' => 'Verify',
-        'Partial' => 'Partial',
+        'Draft' => 'Belum ada PL',
+        'Approved' => 'Belum ada PL',
+        'Partial' => 'Purchase List',
         'Completed PL' => 'Purchase List',
         'Completed' => 'Completed',
     ];
@@ -129,12 +133,23 @@ class Purchase extends Model
      */
     public function purchaseListItemsFullyStockedIn(): bool
     {
-        $listItems = PurchaseItem::with('inventoryItems')
-            ->whereIn('source_purchase_item_id', $this->purchaseItems()->select('id'))
-            ->get();
+        $listItems = $this->purchaseListItemsQuery()->with('inventoryItems')->get();
 
         return $listItems->isNotEmpty()
             && $listItems->every(fn (PurchaseItem $item) => $item->isFullyStockedIn());
+    }
+
+    /**
+     * Item milik seluruh Purchase List anak PO ini. PO tidak lagi punya item
+     * sendiri, jadi hubungannya lewat parent_purchase_id, bukan
+     * source_purchase_item_id.
+     */
+    public function purchaseListItemsQuery()
+    {
+        return PurchaseItem::whereIn(
+            'purchase_id',
+            self::where('parent_purchase_id', $this->id)->select('id')
+        );
     }
 
     public function supplier()
@@ -145,6 +160,22 @@ class Purchase extends Model
     public function purchaseItems()
     {
         return $this->hasMany(PurchaseItem::class, 'purchase_id');
+    }
+
+    /**
+     * Inventory item milik seluruh item purchase ini. Dipakai listing PO untuk
+     * menjumlahkan realisasi Stock In tiap PL anak lewat satu withSum.
+     */
+    public function purchaseInventoryItems()
+    {
+        return $this->hasManyThrough(
+            InventoryItem::class,
+            PurchaseItem::class,
+            'purchase_id',      // FK di purchase_items -> purchases
+            'purchase_item_id', // FK di inventory_items_2 -> purchase_items
+            'id',
+            'id'
+        );
     }
 
     public function parentPurchase()
@@ -220,51 +251,25 @@ class Purchase extends Model
     }
 
     /**
-     * Qty PL yang sudah dibuat dari tiap item PO ini (key: purchase_item_id PO).
-     * Dipakai untuk menghitung progress PO sekaligus mengunci qty saat PO diedit.
-     */
-    public function allocatedQuantityPerItem()
-    {
-        $itemIds = $this->purchaseItems()->pluck('id');
-
-        if ($itemIds->isEmpty()) {
-            return collect();
-        }
-
-        return PurchaseItem::whereIn('source_purchase_item_id', $itemIds)
-            ->selectRaw('source_purchase_item_id, SUM(quantity) as allocated')
-            ->groupBy('source_purchase_item_id')
-            ->pluck('allocated', 'source_purchase_item_id')
-            ->map(fn ($allocated) => (float) $allocated);
-    }
-
-    /**
-     * Hitung ulang approval_status PO mengikuti progress PL, Stock In, dan
-     * pembayaran: Draft -> Approved (sudah verify, belum ada PL) -> Partial
-     * (sebagian qty sudah dibuatkan PL) -> Completed PL (semua qty sudah
-     * dibuatkan PL) -> Completed (semua PL sudah stock in penuh DAN lunas).
+     * Hitung ulang approval_status PO dari Purchase List anaknya:
+     * Draft (belum ada PL) -> Completed PL (ada PL yang belum beres) ->
+     * Completed (semua PL sudah stock in penuh DAN lunas). Karena PO adalah
+     * wadah permanen per supplier, status bisa kembali ke Completed PL begitu
+     * ada PL baru.
      */
     public function syncApprovalProgress(): void
     {
-        if ($this->status !== 'Purchase Orders' || ($this->approval_status ?? 'Draft') === 'Draft') {
+        if ($this->status !== 'Purchase Orders') {
             return;
         }
 
-        $items = $this->purchaseItems()->get();
-        $ordered = (float) $items->sum('quantity');
-
-        $listItems = PurchaseItem::with('inventoryItems')
-            ->whereIn('source_purchase_item_id', $items->pluck('id'))
-            ->get();
-        $allocated = (float) $listItems->sum('quantity');
+        $listItems = $this->purchaseListItemsQuery()->with('inventoryItems')->get();
 
         $status = match (true) {
-            $allocated <= 0 => 'Approved',
-            $ordered <= 0 || $allocated < $ordered => 'Partial',
-            default => $listItems->every(fn (PurchaseItem $item) => $item->isFullyStockedIn())
-                && $this->purchaseListsFullyPaid()
-                    ? 'Completed'
-                    : 'Completed PL',
+            $listItems->isEmpty() => 'Draft',
+            $listItems->every(fn (PurchaseItem $item) => $item->isFullyStockedIn())
+                && $this->purchaseListsFullyPaid() => 'Completed',
+            default => 'Completed PL',
         };
 
         if (($this->approval_status ?? null) !== $status) {

@@ -1077,6 +1077,7 @@ class HistoryStockInController extends Controller
     {
         $request->validate([
             'quantity' => 'required|numeric|min:0',
+            'freight' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'waybill_number' => 'required|string|max:255',
         ], [
@@ -1155,9 +1156,16 @@ class HistoryStockInController extends Controller
 
         $inventoryStock->save();
 
+        // Freight per satuan beli, arti yang sama dengan form Stock In.
+        // Field yang tidak terkirim berarti freight lama dipertahankan.
+        $oldFreight = (float) $history->freight;
+        $newFreight = $request->filled('freight') ? (float) $request->freight : $oldFreight;
+        $freightChanged = abs($newFreight - $oldFreight) > 0.00001;
+
         // Update history
         $history->update([
             'stock_in' => $newQty,
+            'freight'  => $newFreight,
             'notes'    => $request->notes,
         ]);
 
@@ -1168,6 +1176,20 @@ class HistoryStockInController extends Controller
         ]);
 
         Purchase::syncApprovalProgressFromPurchaseItems([$inventoryItem->purchase_item_id]);
+
+        // Batch FIFO lahir dari baris history ini: qty-nya jadi qty batch dan
+        // freight-nya ikut harga modal batch. Jadi editan keduanya harus ikut
+        // menggeser batch yang sama sekarang juga, bukan menunggu cron malam.
+        // Tanpa ini penjualan sesudahnya tetap dinilai dengan angka lama.
+        if (($diff !== 0 || $freightChanged) && $inventoryItem->purchase_item_id) {
+            try {
+                app(FifoCostService::class)->rebuild([(int) $inventoryItem->product_id]);
+            } catch (\Throwable $e) {
+                // Editnya sendiri sudah tersimpan; cron cost:rebuild-fifo malam
+                // akan membangun ulang batch-nya. Dicatat supaya tidak hilang diam-diam.
+                report($e);
+            }
+        }
 
         return response()->json(['message' => 'History berhasil diperbarui']);
     }

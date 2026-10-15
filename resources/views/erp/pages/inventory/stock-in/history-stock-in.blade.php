@@ -336,6 +336,13 @@
                         </div>
 
                         <div class="mb-2">
+                            <label class="form-label">Freight</label>
+                            <input type="number" id="edit_freight" name="freight" class="form-control" min="0"
+                                step="any" placeholder="0">
+                            <div class="form-text">Per satuan beli (mis. per Dus), sama seperti waktu Stock In.</div>
+                        </div>
+
+                        <div class="mb-2">
                             <label class="form-label">Notes</label>
                             <textarea id="edit_notes" name="notes" class="form-control" rows="3"></textarea>
                         </div>
@@ -430,6 +437,7 @@
                 $('#product_name').val(product);
                 $('#edit_waybill_number').val($(this).data('waybill') || '');
                 $('#edit_quantity').val(qty);
+                $('#edit_freight').val($(this).data('freight') || 0);
                 $('#edit_notes').val(notes || '');
 
                 // Tampilkan modal

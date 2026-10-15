@@ -169,9 +169,7 @@
                                 <thead>
                                     <tr>
                                         <th></th>
-                                        <th>Purchase Number</th>
                                         <th>Supplier</th>
-                                        <th>PO Status</th>
                                         <th>Total Amount</th>
                                         <th>User</th>
                                     </tr>
@@ -250,35 +248,6 @@
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-danger">
                             <i class="feather feather-zap-off me-2"></i>Force Delete
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalApprovePurchaseOrder" tabindex="-1"
-        aria-labelledby="approvePurchaseOrderLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <form method="POST" id="formApprovePurchaseOrder">
-                @csrf
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title text-white" id="approvePurchaseOrderLabel">Konfirmasi Verify PO</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-2">Verify Purchase Order <strong id="approvePurchaseNumber"></strong>?</p>
-                        <div class="alert alert-warning mb-0">
-                            Setelah di-verify, PO sudah dapat dibuatkan Purchase List. PO masih bisa diedit,
-                            tapi qty yang sudah dibuatkan Purchase List tidak dapat dikurangi atau dihapus.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="feather-check-circle me-2"></i>Ya, Verify PO
                         </button>
                     </div>
                 </div>
@@ -530,9 +499,15 @@
             let isLoading = false;
             let hasMoreData = true;
 
-            function formatProducts(products) {
-                if (!products || products.length === 0) {
-                    return '<div class="p-1 text-muted">No products</div>';
+            function escapeHtml(value) {
+                return $('<div>').text(value ?? '').html();
+            }
+
+            // PO cuma wadah per supplier, jadi yang ditampilkan di baris anak
+            // adalah daftar Purchase List-nya.
+            function formatPurchaseLists(lists) {
+                if (!lists || lists.length === 0) {
+                    return '<div class="p-1 text-muted">Belum ada Purchase List</div>';
                 }
 
                 let html = `
@@ -540,26 +515,30 @@
                 <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
                     <thead>
                         <tr>
-                            <th>Product</th>
-                            <th>SKU</th>
-                            <th>PO Qty</th>
-                            <th>Verify Qty</th>
-                            <th>Remaining</th>
+                            <th>Purchase List</th>
+                            <th>Date</th>
+                            <th>Destination</th>
+                            <th>Total</th>
+                            <th>Payment</th>
                             <th>Stock In</th>
                         </tr>
                     </thead>
                     <tbody>
         `;
 
-                products.forEach(p => {
+                lists.forEach(pl => {
+                    const stockIn = pl.stock_in_completed
+                        ? '<span class="text-success fw-semibold">Selesai</span>'
+                        : '<span class="text-warning fw-semibold">Belum lengkap</span>';
+
                     html += `
                 <tr>
-                    <td>${p.name}</td>
-                    <td>${p.sku}</td>
-                    <td class="text-primary fw-bold">${p.qty} ${p.unit}</td>
-                    <td class="text-success fw-semibold">${p.approved_qty} ${p.unit}</td>
-                    <td class="text-danger fw-bold">${p.remaining_qty} ${p.unit}</td>
-                    <td class="text-warning fw-bold">${p.stock_in}/${p.approved_qty} ${p.unit}</td>
+                    <td><a href="/erp/purchases/purchase-list/detail-purchase/${pl.id}">${escapeHtml(pl.number)}</a></td>
+                    <td>${escapeHtml(pl.date)}</td>
+                    <td>${escapeHtml(pl.destination)}</td>
+                    <td class="fw-bold">${escapeHtml(pl.total)}</td>
+                    <td>${escapeHtml(pl.payment_status)}</td>
+                    <td>${stockIn}</td>
                 </tr>
             `;
                 });
@@ -594,13 +573,7 @@
                         width: "20px"
                     },
                     {
-                        data: 'purchase_number'
-                    },
-                    {
                         data: 'supplier'
-                    },
-                    {
-                        data: 'approval_status'
                     },
                     {
                         data: 'total_amount'
@@ -718,7 +691,7 @@
                     tr.removeClass('shown');
                     icon.removeClass('feather-minus').addClass('feather-plus');
                 } else {
-                    row.child(formatProducts(row.data().products)).show();
+                    row.child(formatPurchaseLists(row.data().purchase_lists)).show();
                     tr.addClass('shown');
                     icon.removeClass('feather-plus').addClass('feather-minus');
                 }
@@ -870,18 +843,6 @@
                 form.action = url;
                 form.dataset.id = id;
                 nameHolder.textContent = name;
-            });
-        });
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('modalApprovePurchaseOrder');
-            const form = document.getElementById('formApprovePurchaseOrder');
-            const numberHolder = document.getElementById('approvePurchaseNumber');
-
-            modal.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget;
-                form.action = button.getAttribute('data-url');
-                numberHolder.textContent = button.getAttribute('data-number');
             });
         });
 

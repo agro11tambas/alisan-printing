@@ -108,7 +108,7 @@
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item"><a href="/erp/purchases/purchase-orders">Purchase Order</a></li>
                 @if ($purchaseOrder)
-                    <li class="breadcrumb-item">{{ $purchaseOrder->purchase_number }}</li>
+                    <li class="breadcrumb-item">{{ $purchaseOrder->purchase_number }} · {{ $purchaseOrder->supplier->name ?? '-' }}</li>
                 @else
                     <li class="breadcrumb-item">Purchase List</li>
                 @endif
@@ -126,6 +126,14 @@
                         <i class="feather-arrow-left me-2"></i>
                         <span>Back to Purchase Order</span>
                     </a>
+                    {{-- PL hanya bisa dibuat di dalam PO supplier-nya. --}}
+                    @if ($purchaseOrder)
+                        <a href="/erp/purchases/purchase-list/create-purchase?purchase_order_id={{ $purchaseOrder->id }}"
+                            class="btn btn-primary">
+                            <i class="feather-plus me-2"></i>
+                            <span>Create Purchase List</span>
+                        </a>
+                    @endif
                 </div>
             </div>
             <div class="d-md-none d-flex align-items-center">
@@ -134,6 +142,13 @@
                     <i class="feather-arrow-left"></i>
                     <span>Purchase Orders</span>
                 </a>
+                @if ($purchaseOrder)
+                    <a href="/erp/purchases/purchase-list/create-purchase?purchase_order_id={{ $purchaseOrder->id }}"
+                        class="btn btn-primary transaction-list-mobile-action">
+                        <i class="feather-plus"></i>
+                        <span>Create Purchase List</span>
+                    </a>
+                @endif
             </div>
         </div>
     </div>
