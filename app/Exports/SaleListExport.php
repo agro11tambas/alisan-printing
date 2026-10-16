@@ -88,6 +88,11 @@ class SaleListExport extends BaseExcelExport
 
         if ($row >= 2) {
             $sheet->getStyle('G2:G'.$row)->getNumberFormat()->setFormatCode('#,##0');
+
+            // Harga Modal dan Margin hasil rata-rata tertimbang FIFO jarang bulat:
+            // 2.500@200 + 500@220 memberi modal 203,33 dan margin 76,67. Format
+            // rupiah tanpa desimal menampilkannya sebagai 203 dan 77.
+            $sheet->getStyle('K2:L'.$row)->getNumberFormat()->setFormatCode('#,##0.00');
         }
 
         // Matikan auto-size untuk seluruh kolom. Writer akan memindai setiap sel
