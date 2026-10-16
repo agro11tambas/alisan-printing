@@ -7,6 +7,8 @@ use App\Models\OrderItem;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Conditional;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class SaleListExport extends BaseExcelExport
@@ -26,14 +28,26 @@ class SaleListExport extends BaseExcelExport
         'Unit Price',
         'Harga Modal',
         'Margin',
+        'Ket. Modal',
         'Grand Total',
     ];
 
     /** Kolom yang di-merge per order karena nilainya milik order, bukan per produk. */
-    private const ORDER_COLUMNS = ['A', 'B', 'C', 'M'];
+    private const ORDER_COLUMNS = ['A', 'B', 'C', 'N'];
 
     /** Kolom angka rupiah (1 = A). */
-    private const CURRENCY_COLUMNS = [10, 11, 12, 13];
+    private const CURRENCY_COLUMNS = [10, 11, 12, 14];
+
+    /**
+     * Isi kolom Ket. Modal untuk baris yang sebagian modalnya tidak tertutup
+     * batch mana pun. Barang yang terjual melebihi stok yang sudah di-stock in
+     * pada tanggal penjualan itu dinilai dengan harga batch terakhir, jadi
+     * angkanya taksiran dan bisa berubah setelah stock in-nya dibereskan.
+     */
+    private const LABEL_TAKSIRAN = 'Taksiran';
+
+    /** Warna baris bermodal taksiran: kuning lembut, menang atas warna belang. */
+    private const TAKSIRAN_COLOR = 'FFFFF2CC';
 
     /** Kolom teks panjang yang rata kiri: Customer, Nama Product, dan SKU. */
     private const TEXT_COLUMNS = [3, 4, 5];
@@ -70,6 +84,7 @@ class SaleListExport extends BaseExcelExport
 
         $lastRow = $this->writeTotalRow($sheet, $row);
         $this->finalizeSheet($sheet, count(self::HEADERS), $lastRow, self::CURRENCY_COLUMNS, self::TEXT_COLUMNS);
+        $this->highlightEstimatedRows($sheet, $lastRow);
 
         if ($row >= 2) {
             $sheet->getStyle('G2:G'.$row)->getNumberFormat()->setFormatCode('#,##0');
@@ -81,7 +96,7 @@ class SaleListExport extends BaseExcelExport
         foreach ([
             'A' => 22, 'B' => 17, 'C' => 28, 'D' => 42, 'E' => 18,
             'F' => 12, 'G' => 12, 'H' => 14, 'I' => 14, 'J' => 16,
-            'K' => 16, 'L' => 16, 'M' => 18,
+            'K' => 16, 'L' => 16, 'M' => 13, 'N' => 18,
         ] as $column => $width) {
             $sheet->getColumnDimension($column)->setAutoSize(false);
             $sheet->getColumnDimension($column)->setWidth($width);
@@ -108,7 +123,7 @@ class SaleListExport extends BaseExcelExport
                 $orderDate,
                 $customer,
                 '-', '-', '-', 0, '-', '-', 0,
-                0, 0,
+                0, 0, null,
                 (float) $order->grand_total,
             ]);
 
@@ -193,7 +208,7 @@ class SaleListExport extends BaseExcelExport
         $cost = $item->cost;
 
         if ($cost === null) {
-            return [0, 0];
+            return [0, 0, null];
         }
 
         $quantity = (float) $item->quantity;
@@ -202,7 +217,38 @@ class SaleListExport extends BaseExcelExport
         return [
             $unitCost,
             $unitPrice - $unitCost,
+            $cost->is_estimated ? self::LABEL_TAKSIRAN : null,
         ];
+    }
+
+    /**
+     * Warnai seluruh baris yang modalnya taksiran.
+     *
+     * Lewat conditional formatting, bukan style per sel, dengan alasan yang
+     * sama seperti warna belang di finalizeSheet(): satu aturan untuk seluruh
+     * tabel. Aturannya ditaruh di depan warna belang supaya menang di baris
+     * genap; kalau dipasang terpisah, belangnya yang menimpa kuningnya.
+     */
+    private function highlightEstimatedRows(Worksheet $sheet, int $lastRow): void
+    {
+        if ($lastRow < 2) {
+            return;
+        }
+
+        $range = 'A2:'.Coordinate::stringFromColumnIndex(count(self::HEADERS)).$lastRow;
+
+        $estimated = new Conditional;
+        $estimated->setConditionType(Conditional::CONDITION_EXPRESSION)
+            ->addCondition('$M2="'.self::LABEL_TAKSIRAN.'"')
+            ->setStopIfTrue(true);
+        $estimated->getStyle()->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB(self::TAKSIRAN_COLOR);
+
+        $sheet->getStyle($range)->setConditionalStyles([
+            $estimated,
+            ...$sheet->getStyle($range)->getConditionalStyles(),
+        ]);
     }
 
     /**
@@ -210,7 +256,7 @@ class SaleListExport extends BaseExcelExport
      */
     private function styleProductHeaderGroup(Worksheet $sheet): void
     {
-        $sheet->getStyle('D1:L1')->getFill()
+        $sheet->getStyle('D1:M1')->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FF2E5C8A');
     }
@@ -225,18 +271,18 @@ class SaleListExport extends BaseExcelExport
         }
 
         $totalRow = $lastDataRow + 1;
-        $sheet->setCellValue('L'.$totalRow, 'TOTAL');
+        $sheet->setCellValue('M'.$totalRow, 'TOTAL');
 
         // Harga Modal dan Margin sekarang harga per satuan, jadi tidak ikut
         // dijumlahkan: menotal harga per satuan antar produk tidak berarti
         // apa-apa. Yang ditotal hanya Grand Total.
         $sheet->setCellValue(
-            'M'.$totalRow,
-            '=SUM(M2:M'.$lastDataRow.')'
+            'N'.$totalRow,
+            '=SUM(N2:N'.$lastDataRow.')'
         );
 
-        $sheet->getStyle('A'.$totalRow.':M'.$totalRow)->getFont()->setBold(true);
-        $sheet->getStyle('M'.$totalRow)
+        $sheet->getStyle('A'.$totalRow.':N'.$totalRow)->getFont()->setBold(true);
+        $sheet->getStyle('N'.$totalRow)
             ->getNumberFormat()
             ->setFormatCode(self::CURRENCY_FORMAT);
 
