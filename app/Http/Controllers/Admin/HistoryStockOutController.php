@@ -19,6 +19,7 @@ use App\Models\ProductionStock;
 use App\Models\Products;
 use App\Models\PurchaseItem;
 use App\Models\PurchaseReturnItem;
+use App\Services\FifoCostService;
 use App\Services\ProductCostService;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -265,6 +266,8 @@ class HistoryStockOutController extends Controller
                             'date'     => now()->format('Y-m-d'),
                             'status'   => 'pending',
                             'note'     => 'Stock Out #' . $stockOut->id,
+                            // Kolomnya wajib diisi; tanpa ini seluruh Stock Out gagal dan di-rollback.
+                            'verified_by' => $request->user()->id,
                         ]);
                     }
                 }
@@ -345,10 +348,50 @@ class HistoryStockOutController extends Controller
             }
 
             DB::commit();
+
+            $this->rebuildFifoForRequestStock($inventory);
+
             return redirect('/erp/inventory/stock-out')->with('success', 'Stock Out berhasil ditambahkan');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Stock Out gagal: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Stock Out untuk Request Stock memindahkan barang gudang ke produksi, dan
+     * di situlah batch FIFO gudang yang pasif jadi aktif. Hitung ulang
+     * sekarang untuk produk yang dikirim saja, supaya penjualan yang tadinya
+     * taksiran langsung memakai harga kiriman ini, tidak menunggu cron malam.
+     *
+     * Gagal menghitung tidak boleh menggagalkan Stock Out-nya: barangnya sudah
+     * keluar. Cron malam akan membereskannya.
+     */
+    private function rebuildFifoForRequestStock(Inventory $inventory): void
+    {
+        if (! $inventory->material_request_id) {
+            return;
+        }
+
+        $productIds = InventoryItem::where('inventory_id', $inventory->id)
+            ->pluck('product_id')
+            ->filter()
+            ->unique()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if ($productIds === []) {
+            return;
+        }
+
+        try {
+            app(FifoCostService::class)->rebuild($productIds);
+        } catch (\Throwable $e) {
+            Log::error('Rebuild FIFO setelah Stock Out Request Stock gagal: ' . $e->getMessage(), [
+                'inventory_id' => $inventory->id,
+                'product_ids' => $productIds,
+            ]);
         }
     }
 
@@ -443,6 +486,8 @@ class HistoryStockOutController extends Controller
                 'stock_out'              => $newQty,
             ]);
         }
+
+        $this->rebuildFifoForRequestStock($inventory);
 
         return redirect('/erp/inventory/stock-out')
             ->with('success', 'Inventory Stock Out berhasil diupdate');

@@ -37,6 +37,14 @@ use Illuminate\Support\Facades\Schema;
  * Konversi satuan ditangani di sini: beli 1 Dus @1.000.000 dengan 1 Dus = 1.000
  * Pcs menghasilkan batch 1.000 Pcs @1.000. Semua kuantitas di kelas ini memakai
  * SATUAN DASAR (qty_base), supaya sisi pembelian dan penjualan sebanding.
+ *
+ * Batch gudang itu PASIF. Purchase yang stock destination-nya gudang memang
+ * melahirkan batch, tapi batch itu duduk di antrian terpisah dan tidak bisa
+ * dimakan penjualan. Baru ketika gudang mengirim barang ke produksi lewat
+ * Request Stock, batch gudang tertua diambil (FIFO) dan dilahirkan ulang
+ * sebagai batch aktif di produksi dengan harga yang sama dan TANGGAL
+ * PENGIRIMAN itu. Penjualan hanya memakan batch aktif. Aturan ini berlaku
+ * sejak CostSetting::passiveWarehouseFrom(); stok sebelum itu tetap aktif.
  */
 class FifoCostService
 {
@@ -66,15 +74,18 @@ class FifoCostService
 
     /**
      * Urutan kejadian pada cap waktu yang sama. Angkanya bukan selera:
-     * retur mendahului penjualan supaya stok yang balik bisa langsung
-     * dipakai, dan opname paling belakang karena hitung fisik menilai
-     * kondisi SETELAH seluruh transaksi hari itu.
+     * kiriman Request Stock paling depan karena barang harus sampai di
+     * produksi dulu sebelum bisa dijual, retur mendahului penjualan supaya
+     * stok yang balik bisa langsung dipakai, dan opname paling belakang
+     * karena hitung fisik menilai kondisi SETELAH seluruh transaksi hari itu.
      */
-    private const ORDER_RETURN = 0;
+    private const ORDER_TRANSFER = 0;
 
-    private const ORDER_SALE = 1;
+    private const ORDER_RETURN = 1;
 
-    private const ORDER_OPNAME = 2;
+    private const ORDER_SALE = 2;
+
+    private const ORDER_OPNAME = 3;
 
     /** Batas putaran perluasan scope sebelum menyerah dan rebuild penuh. */
     private const SCOPE_EXPANSION_ROUNDS = 5;
@@ -101,6 +112,30 @@ class FifoCostService
 
     /** Penunjuk batch terdepan yang belum habis, per produk. */
     private array $cursors = [];
+
+    /**
+     * Antrian batch PASIF (barang masih di gudang) per produk. Hanya dimakan
+     * oleh Request Stock dan selisih kurang opname gudang, tidak oleh
+     * penjualan.
+     *
+     * @var array<int, array<int, array{id:int, qty:float, cost:float, date:string}>>
+     */
+    private array $warehouseQueues = [];
+
+    private array $warehouseCursors = [];
+
+    /**
+     * Kiriman Request Stock yang belum diputar, urut tanggal. Diselipkan ke
+     * garis waktu di replayTimeline().
+     *
+     * @var array<int, array{date:string, product:int, qty:float, reference:string}>
+     */
+    private array $pendingTransfers = [];
+
+    private int $transferCursor = 0;
+
+    /** Sejak kapan stock in gudang melahirkan batch pasif; null = fitur mati. */
+    private ?Carbon $passiveFrom = null;
 
     /**
      * Batas batch yang sudah "datang" pada titik waktu replay saat ini, per
@@ -130,6 +165,24 @@ class FifoCostService
      * @var array<int, array<int, array{product:int, layer:int|null, index:int|null, qty:float, cost:float}>>
      */
     private array $saleAllocations = [];
+
+    /**
+     * Bagian penjualan yang belum tertutup batch mana pun, per produk, urut
+     * waktu. Batch aktif yang datang belakangan (Request Stock, purchase ke
+     * produksi) menutupnya lebih dulu sebelum melayani penjualan berikutnya.
+     *
+     * @var array<int, array<int, array{event:object, order_item:int, qty:float, cost:float, allocation:int}>>
+     */
+    private array $deficits = [];
+
+    /** Baris penjualan yang pernah punya kekurangan: [order_item_id => true]. */
+    private array $deficitItems = [];
+
+    /** Koreksi total HPP per baris penjualan dari kekurangan yang tertutup. */
+    private array $deficitAdjustments = [];
+
+    /** Baris penjualan yang kekurangannya tidak tertutup sampai akhir. */
+    private array $stillEstimated = [];
 
     /** Kuantitas dasar tiap baris penjualan, untuk menghitung porsi retur. */
     private array $saleQtyBase = [];
@@ -168,6 +221,7 @@ class FifoCostService
         'estimated_items' => 0,
         'returns' => 0,
         'opnames' => 0,
+        'transfers' => 0,
     ];
 
     /**
@@ -185,8 +239,9 @@ class FifoCostService
     public function rebuild(?array $productIds = null, ?bool $izinkanRebuildPenuh = null): array
     {
         $this->startDate = CostSetting::startDate();
+        $this->passiveFrom = CostSetting::passiveWarehouseFrom();
 
-        $scope = $productIds === null ? null : $this->expandScope($productIds);
+        $scope =$productIds === null ? null : $this->expandScope($productIds);
 
         // Rebuild penuh menghapus SELURUH ledger FIFO satu perusahaan lalu
         // menyusunnya lagi dari nol. Di CLI itu wajar: cost:rebuild-fifo
@@ -220,6 +275,7 @@ class FifoCostService
             $this->buildLayers($scope);
             $this->loadQueues($scope);
             $this->replayTimeline($scope);
+            $this->applyDeficitAdjustments();
             $this->persistLayerRemaining();
             $this->applyReturnAdjustments();
             $this->persistOpnameCosts($scope);
@@ -504,6 +560,8 @@ class FifoCostService
                 'product_id' => $productId,
                 'source_type' => CostLayer::SOURCE_OPENING,
                 'source_id' => null,
+                // Stok awal dianggap sudah aktif, di mana pun barangnya.
+                'location' => CostLayer::LOCATION_PRODUCTION,
                 'reference' => 'Opening Stock',
                 'layer_date' => $openingDate,
                 'qty_in' => $opening['qty'],
@@ -551,6 +609,7 @@ class FifoCostService
                 'pi.final_price AS final_price',
                 'p.purchase_number AS purchase_number',
                 'p.purchase_date AS purchase_date',
+                'p.stock_destination AS stock_destination',
             ])
             ->chunk(1000, function ($histories) use (&$rows, $now) {
                 foreach ($histories as $history) {
@@ -568,6 +627,7 @@ class FifoCostService
                         'product_id' => (int) $history->product_id,
                         'source_type' => CostLayer::SOURCE_PURCHASE,
                         'source_id' => (int) $history->purchase_item_id,
+                        'location' => $this->locationOfStockIn($date, $history->stock_destination),
                         'reference' => $history->purchase_number,
                         'layer_date' => $date,
                         'qty_in' => $qty,
@@ -638,6 +698,9 @@ class FifoCostService
                         'product_id' => (int) $opname->product_id,
                         'source_type' => CostLayer::SOURCE_OPNAME,
                         'source_id' => (int) $opname->id,
+                        // Stock Opname ini opname gudang, jadi barang yang
+                        // ketemu ikut pasif sampai dikirim ke produksi.
+                        'location' => $this->locationOfStockIn((string) $opname->date, null),
                         'reference' => 'Stock Opname #'.$opname->id,
                         'layer_date' => Carbon::parse($opname->date)->endOfDay()->toDateTimeString(),
                         'qty_in' => (float) $opname->quantity,
@@ -648,6 +711,25 @@ class FifoCostService
                     ];
                 }
             });
+    }
+
+    /**
+     * Gudang atau produksi untuk batch yang lahir pada $date.
+     *
+     * Barang yang masuk ke gudang jadi batch pasif. Pengecualiannya dua:
+     * purchase yang stock destination-nya langsung ke produksi, dan stock in
+     * sebelum titik potong passiveFrom — stok lama itu dianggap aktif karena
+     * riwayat kirimannya ke produksi belum tentu tercatat lengkap.
+     */
+    private function locationOfStockIn(string $date, ?string $destination): string
+    {
+        if ($this->passiveFrom === null
+            || $destination === CostLayer::LOCATION_PRODUCTION
+            || Carbon::parse($date)->lt($this->passiveFrom)) {
+            return CostLayer::LOCATION_PRODUCTION;
+        }
+
+        return CostLayer::LOCATION_WAREHOUSE;
     }
 
     /**
@@ -804,7 +886,7 @@ class FifoCostService
     private function loadQueues(?array $scope): void
     {
         DB::table('cost_layers')
-            ->select('id', 'product_id', 'qty_remaining', 'unit_cost', 'layer_date')
+            ->select('id', 'product_id', 'location', 'qty_remaining', 'unit_cost', 'layer_date')
             ->when($scope !== null, fn ($query) => $query->whereIn('product_id', $scope))
             ->orderBy('product_id')
             ->orderBy('layer_date')
@@ -813,12 +895,18 @@ class FifoCostService
                 foreach ($layers as $layer) {
                     $productId = (int) $layer->product_id;
 
-                    $this->queues[$productId][] = [
+                    $entry = [
                         'id' => (int) $layer->id,
                         'qty' => (float) $layer->qty_remaining,
                         'cost' => (float) $layer->unit_cost,
                         'date' => (string) $layer->layer_date,
                     ];
+
+                    if ($layer->location === CostLayer::LOCATION_WAREHOUSE) {
+                        $this->warehouseQueues[$productId][] = $entry;
+                    } else {
+                        $this->queues[$productId][] = $entry;
+                    }
 
                     $this->firstLayerCost[$productId] ??= (float) $layer->unit_cost;
                 }
@@ -827,6 +915,10 @@ class FifoCostService
         foreach (array_keys($this->queues) as $productId) {
             $this->cursors[$productId] = 0;
             $this->available[$productId] = 0;
+        }
+
+        foreach (array_keys($this->warehouseQueues) as $productId) {
+            $this->warehouseCursors[$productId] = 0;
         }
 
         // Produk tanpa batch sama sekali (misalnya hasil produksi) tetap butuh
@@ -851,6 +943,8 @@ class FifoCostService
     private function replayTimeline(?array $scope): void
     {
         $this->loadBundleComponents();
+        $this->pendingTransfers = $this->transferEvents($scope);
+        $this->transferCursor = 0;
 
         DB::query()
             ->fromSub($this->timelineQuery($scope), 'e')
@@ -859,6 +953,12 @@ class FifoCostService
             ->orderBy('ref_id')
             ->chunk(500, function ($events) {
                 foreach ($events as $event) {
+                    // Kiriman Request Stock dihitung di PHP (lihat
+                    // transferEvents), jadi diselipkan di sini: semua kiriman
+                    // yang tanggalnya tidak lebih lambat dari kejadian ini
+                    // diputar dulu.
+                    $this->applyTransfersUntil((string) $event->event_date);
+
                     match ($event->kind) {
                         'sale' => $this->allocateSale($event),
                         'opname' => $this->applyOpnameLoss($event),
@@ -866,6 +966,10 @@ class FifoCostService
                     };
                 }
             });
+
+        // Kiriman sesudah kejadian terakhir tetap memindahkan sisa batch.
+        $this->applyTransfersUntil(null);
+        $this->settleDeficits();
 
         $this->flushConsumptions(true);
         $this->flushOrderCosts(true);
@@ -1020,6 +1124,228 @@ class FifoCostService
             ]);
     }
 
+    /**
+     * Kiriman gudang ke produksi lewat Request Stock, sebagai daftar kejadian
+     * urut tanggal.
+     *
+     * Sumbernya stock out gudang untuk inventory milik Material Request.
+     * Tidak bisa ditulis sebagai union SQL seperti kejadian lain, karena baris
+     * "Edit Stock Out" menyimpan TOTAL baru, bukan selisihnya — jadi tiap
+     * baris histori harus dibaca berurutan per item untuk tahu berapa yang
+     * benar-benar dikirim hari itu. Koreksi turun memotong kiriman item yang
+     * sama dari yang paling baru.
+     *
+     * Kiriman sebelum titik potong passiveFrom dilewati: batch-nya sudah
+     * aktif dari awal, tidak ada yang perlu diaktifkan.
+     *
+     * @param  array<int>|null  $scope
+     * @return array<int, array{date:string, product:int, qty:float, reference:string}>
+     */
+    private function transferEvents(?array $scope): array
+    {
+        if ($this->passiveFrom === null) {
+            return [];
+        }
+
+        $byItem = [];
+        $running = [];
+
+        DB::table('inventory_stock_out_histories_2 as h')
+            ->join('inventory_stock_outs_2 as so', 'so.id', '=', 'h.inventory_stock_out_id')
+            ->join('inventory_items_2 as ii', 'ii.id', '=', 'h.inventory_item_id')
+            ->join('inventories_2 as inv', 'inv.id', '=', 'ii.inventory_id')
+            ->whereNotNull('inv.material_request_id')
+            ->whereNull('h.deleted_at')
+            ->whereNull('so.deleted_at')
+            ->whereNull('ii.deleted_at')
+            ->whereNull('inv.deleted_at')
+            ->when($scope !== null, fn ($query) => $query->whereIn('ii.product_id', $scope))
+            ->orderBy('h.inventory_item_id')
+            ->orderBy('h.id')
+            ->select([
+                'h.inventory_item_id AS item_id',
+                'h.stock_out AS stock_out',
+                'so.status AS status',
+                'so.change_date AS change_date',
+                'so.created_at AS created_at',
+                'ii.product_id AS product_id',
+                'inv.material_request_number AS reference',
+            ])
+            ->chunk(2000, function ($rows) use (&$byItem, &$running) {
+                foreach ($rows as $row) {
+                    $itemId = (int) $row->item_id;
+                    $before = $running[$itemId] ?? 0.0;
+                    $value = (float) $row->stock_out;
+
+                    $isEdit = strcasecmp((string) $row->status, 'Edit Stock Out') === 0;
+                    $delta = $isEdit ? $value - $before : $value;
+                    $running[$itemId] = $before + $delta;
+
+                    if ($delta > self::EPSILON) {
+                        $date = Carbon::parse($row->change_date ?: $row->created_at)->startOfDay()->toDateTimeString();
+
+                        $byItem[$itemId][] = [
+                            'date' => $date,
+                            'product' => (int) $row->product_id,
+                            'qty' => $delta,
+                            'reference' => 'Request Stock '.($row->reference ?: '#'.$itemId),
+                        ];
+
+                        continue;
+                    }
+
+                    // Koreksi turun: potong kiriman item ini dari yang terbaru.
+                    $cut = -$delta;
+
+                    for ($i = count($byItem[$itemId] ?? []) - 1; $i >= 0 && $cut > self::EPSILON; $i--) {
+                        $take = min($byItem[$itemId][$i]['qty'], $cut);
+                        $byItem[$itemId][$i]['qty'] -= $take;
+                        $cut -= $take;
+                    }
+                }
+            });
+
+        $events = [];
+        $from = $this->passiveFrom->toDateTimeString();
+
+        foreach ($byItem as $transfers) {
+            foreach ($transfers as $transfer) {
+                if ($transfer['qty'] > self::EPSILON && $transfer['date'] >= $from) {
+                    $events[] = $transfer;
+                }
+            }
+        }
+
+        usort($events, fn ($a, $b) => strcmp($a['date'], $b['date']));
+
+        return $events;
+    }
+
+    /** Putar kiriman yang tanggalnya <= $until; null = putar semuanya. */
+    private function applyTransfersUntil(?string $until): void
+    {
+        while (isset($this->pendingTransfers[$this->transferCursor])
+            && ($until === null || $this->pendingTransfers[$this->transferCursor]['date'] <= $until)) {
+            $this->applyTransfer($this->pendingTransfers[$this->transferCursor++]);
+        }
+    }
+
+    /**
+     * Aktifkan batch gudang tertua sebanyak qty kiriman.
+     *
+     * Batch gudang tidak dipindah apa adanya: yang terambil dilahirkan ulang
+     * sebagai batch produksi baru bertanggal kiriman, dengan harga batch
+     * asalnya. Satu kiriman yang melewati dua batch gudang jadi dua batch
+     * produksi dengan harga masing-masing. Batch gudang asalnya tetap ada
+     * dengan sisa yang berkurang.
+     *
+     * Kalau batch gudang tidak cukup (barangnya stok lama yang sudah aktif
+     * dari awal), sisanya dibiarkan: tidak ada yang perlu diaktifkan.
+     *
+     * @param  array{date:string, product:int, qty:float, reference:string}  $transfer
+     */
+    private function applyTransfer(array $transfer): void
+    {
+        $productId = $transfer['product'];
+        $takes = $this->takeFromWarehouse($productId, $transfer['qty'], $transfer['date']);
+
+        if ($takes === []) {
+            return;
+        }
+
+        if (! isset($this->queues[$productId])) {
+            $this->queues[$productId] = [];
+            $this->cursors[$productId] = 0;
+            $this->available[$productId] = 0;
+        }
+
+        // Batch baru diselipkan tepat setelah batch yang sudah tersedia pada
+        // tanggal kiriman, jadi urutan antrian tetap urut tanggal. Indeks
+        // yang sudah dicatat alokasi penjualan semuanya di depan titik ini,
+        // sehingga tidak ada yang bergeser.
+        $this->advanceAvailability($productId, $transfer['date']);
+        $position = $this->available[$productId];
+        $now = now();
+        $newLayers = [];
+
+        foreach ($takes as $take) {
+            $layerId = DB::table('cost_layers')->insertGetId([
+                'product_id' => $productId,
+                'source_type' => CostLayer::SOURCE_TRANSFER,
+                'source_id' => $take['layer'],
+                'location' => CostLayer::LOCATION_PRODUCTION,
+                'reference' => mb_substr($transfer['reference'], 0, 100),
+                'layer_date' => $transfer['date'],
+                'qty_in' => round($take['qty'], 4),
+                'qty_remaining' => round($take['qty'], 4),
+                'unit_cost' => $take['cost'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $this->layerRemaining[$layerId] = $take['qty'];
+
+            $newLayers[] = [
+                'id' => (int) $layerId,
+                'qty' => $take['qty'],
+                'cost' => $take['cost'],
+                'date' => $transfer['date'],
+            ];
+        }
+
+        array_splice($this->queues[$productId], $position, 0, $newLayers);
+        $this->available[$productId] = $position + count($newLayers);
+        $this->lastAvailableCost[$productId] = end($newLayers)['cost'];
+
+        // Kiriman ini lebih dulu menutup penjualan yang tadinya kekurangan.
+        $this->coverDeficits($productId);
+
+        $this->stats['transfers']++;
+    }
+
+    /**
+     * Ambil $qty dari antrian batch gudang, batch tertua dulu. Batch yang
+     * baru masuk sesudah $date belum boleh diambil.
+     *
+     * @return array<int, array{layer:int, qty:float, cost:float}>
+     */
+    private function takeFromWarehouse(int $productId, float $qty, string $date): array
+    {
+        if (! isset($this->warehouseQueues[$productId])) {
+            return [];
+        }
+
+        $queue = &$this->warehouseQueues[$productId];
+        $cursor = $this->warehouseCursors[$productId] ?? 0;
+        $remaining = $qty;
+        $takes = [];
+
+        while ($remaining > self::EPSILON && isset($queue[$cursor]) && $queue[$cursor]['date'] <= $date) {
+            if ($queue[$cursor]['qty'] <= self::EPSILON) {
+                $cursor++;
+
+                continue;
+            }
+
+            $take = min($queue[$cursor]['qty'], $remaining);
+            $queue[$cursor]['qty'] -= $take;
+            $this->layerRemaining[$queue[$cursor]['id']] = $queue[$cursor]['qty'];
+
+            $takes[] = [
+                'layer' => $queue[$cursor]['id'],
+                'qty' => $take,
+                'cost' => $queue[$cursor]['cost'],
+            ];
+
+            $remaining -= $take;
+        }
+
+        $this->warehouseCursors[$productId] = $cursor;
+        unset($queue);
+
+        return $takes;
+    }
+
     private function loadBundleComponents(): void
     {
         DB::table('product_bundle_items')
@@ -1102,6 +1428,11 @@ class FifoCostService
     /**
      * Makan antrian FIFO satu produk sebanyak $qty.
      *
+     * Bagian yang tidak tertutup batch mana pun dicatat sebagai kekurangan
+     * (lihat $deficits): nilainya taksiran untuk sementara, dan baris
+     * konsumsinya baru ditulis setelah jelas apakah batch yang datang
+     * belakangan menutupnya.
+     *
      * @return array{0:float, 1:bool} total modal, dan apakah ada bagian taksiran
      */
     private function consume(object $event, int $productId, float $qty): array
@@ -1111,8 +1442,25 @@ class FifoCostService
         $estimated = false;
 
         foreach ($this->takeFromQueue($productId, $qty, (string) $event->event_date) as $take) {
-            $this->pushConsumption($event, $productId, $take['layer'], $take['qty'], $take['cost'], $take['estimated']);
             $this->rememberAllocation($orderItemId, $productId, $take['layer'], $take['index'], $take['qty'], $take['cost']);
+
+            // Hanya penjualan sejak titik potong passiveFrom yang menunggu
+            // batch berikutnya. Penjualan taksiran yang lebih tua dibiarkan
+            // apa adanya: kalau ikut, dia menyerobot batch baru dan HPP
+            // periode lama bergeser besar.
+            if ($take['estimated'] && $this->passiveFrom !== null
+                && (string) $event->event_date >= $this->passiveFrom->toDateTimeString()) {
+                $this->deficits[$productId][] = [
+                    'event' => $event,
+                    'order_item' => $orderItemId,
+                    'qty' => $take['qty'],
+                    'cost' => $take['cost'],
+                    'allocation' => array_key_last($this->saleAllocations[$orderItemId]),
+                ];
+                $this->deficitItems[$orderItemId] = true;
+            } else {
+                $this->pushConsumption($event, $productId, $take['layer'], $take['qty'], $take['cost'], $take['estimated']);
+            }
 
             $total += $take['qty'] * $take['cost'];
             $estimated = $estimated || $take['estimated'];
@@ -1128,6 +1476,10 @@ class FifoCostService
      * penjualan dan oleh selisih kurang hasil hitung fisik — keduanya memang
      * kejadian yang sama dari sisi persediaan: barang keluar.
      *
+     * Sebelum melayani kejadian ini, batch yang baru tersedia lebih dulu
+     * dipakai menutup kekurangan penjualan sebelumnya (coverDeficits): yang
+     * meminta lebih dulu, dilayani lebih dulu.
+     *
      * Kuantitas yang tidak tertutup batch mana pun tetap dikembalikan, dengan
      * harga taksiran dan ditandai estimated, supaya barisnya ketahuan dan bisa
      * dibereskan — bukan hilang diam-diam bernilai nol.
@@ -1136,44 +1488,16 @@ class FifoCostService
      */
     private function takeFromQueue(int $productId, float $qty, string $eventDate): array
     {
-        $remaining = $qty;
         $takes = [];
 
         if (isset($this->queues[$productId])) {
             $this->advanceAvailability($productId, $eventDate);
+            $this->coverDeficits($productId);
 
-            $limit = $this->available[$productId];
-            $queue = &$this->queues[$productId];
-            $cursor = $this->cursors[$productId] ?? 0;
-
-            while ($remaining > self::EPSILON && $cursor < $limit && isset($queue[$cursor])) {
-                if ($queue[$cursor]['qty'] <= 0) {
-                    $cursor++;
-
-                    continue;
-                }
-
-                $take = min($queue[$cursor]['qty'], $remaining);
-                $unitCost = $queue[$cursor]['cost'];
-                $layerId = $queue[$cursor]['id'];
-
-                $queue[$cursor]['qty'] -= $take;
-                $this->layerRemaining[$layerId] = $queue[$cursor]['qty'];
-
-                $takes[] = [
-                    'layer' => $layerId,
-                    'index' => $cursor,
-                    'qty' => $take,
-                    'cost' => $unitCost,
-                    'estimated' => false,
-                ];
-
-                $remaining -= $take;
-            }
-
-            $this->cursors[$productId] = $cursor;
-            unset($queue);
+            $takes = $this->takeAvailable($productId, $qty);
         }
+
+        $remaining = $qty - array_sum(array_column($takes, 'qty'));
 
         if ($remaining > self::EPSILON) {
             $takes[] = [
@@ -1186,6 +1510,145 @@ class FifoCostService
         }
 
         return $takes;
+    }
+
+    /**
+     * Ambil sampai $qty dari batch aktif yang sudah tersedia, tanpa
+     * taksiran. Bisa mengembalikan kurang dari $qty.
+     *
+     * @return array<int, array{layer:int, index:int, qty:float, cost:float, estimated:bool}>
+     */
+    private function takeAvailable(int $productId, float $qty): array
+    {
+        $remaining = $qty;
+        $takes = [];
+        $limit = $this->available[$productId] ?? 0;
+        $queue = &$this->queues[$productId];
+        $cursor = $this->cursors[$productId] ?? 0;
+
+        while ($remaining > self::EPSILON && $cursor < $limit && isset($queue[$cursor])) {
+            if ($queue[$cursor]['qty'] <= 0) {
+                $cursor++;
+
+                continue;
+            }
+
+            $take = min($queue[$cursor]['qty'], $remaining);
+            $layerId = $queue[$cursor]['id'];
+
+            $queue[$cursor]['qty'] -= $take;
+            $this->layerRemaining[$layerId] = $queue[$cursor]['qty'];
+
+            $takes[] = [
+                'layer' => $layerId,
+                'index' => $cursor,
+                'qty' => $take,
+                'cost' => $queue[$cursor]['cost'],
+                'estimated' => false,
+            ];
+
+            $remaining -= $take;
+        }
+
+        $this->cursors[$productId] = $cursor;
+        unset($queue);
+
+        return $takes;
+    }
+
+    /**
+     * Tutup kekurangan penjualan lama dengan batch aktif yang tersedia.
+     *
+     * Kasusnya: penjualan 500 padahal batch tinggal 300, lalu owner Request
+     * Stock 200 sesudahnya. Barang yang benar-benar dipakai penjualan itu
+     * adalah kiriman tadi, jadi 200-nya dinilai di harga kiriman, bukan
+     * taksiran — dan kiriman itu tidak lagi menganggur untuk penjualan lain.
+     *
+     * Konsekuensinya disengaja: HPP penjualan lama bisa berubah setelah
+     * batchnya datang. Yang berubah hanya bagian yang memang taksiran.
+     */
+    private function coverDeficits(int $productId): void
+    {
+        if (empty($this->deficits[$productId]) || ! isset($this->queues[$productId])) {
+            return;
+        }
+
+        foreach ($this->deficits[$productId] as $i => $deficit) {
+            foreach ($this->takeAvailable($productId, $deficit['qty']) as $take) {
+                $orderItemId = $deficit['order_item'];
+
+                $this->pushConsumption($deficit['event'], $productId, $take['layer'], $take['qty'], $take['cost']);
+
+                // Alokasi taksiran dipecah: bagian yang tertutup menunjuk ke
+                // batch aslinya, supaya retur sesudahnya kembali ke sana.
+                $this->saleAllocations[$orderItemId][$deficit['allocation']]['qty'] -= $take['qty'];
+                $this->rememberAllocation($orderItemId, $productId, $take['layer'], $take['index'], $take['qty'], $take['cost']);
+
+                $this->deficitAdjustments[$orderItemId] = ($this->deficitAdjustments[$orderItemId] ?? 0.0)
+                    + $take['qty'] * ($take['cost'] - $deficit['cost']);
+
+                $deficit['qty'] -= $take['qty'];
+            }
+
+            if ($deficit['qty'] > self::EPSILON) {
+                $this->deficits[$productId][$i] = $deficit;
+
+                break;
+            }
+
+            unset($this->deficits[$productId][$i]);
+        }
+
+        $this->deficits[$productId] = array_values($this->deficits[$productId]);
+    }
+
+    /**
+     * Akhir replay: batch yang datang sesudah kejadian terakhir masih boleh
+     * menutup kekurangan. Sisanya benar-benar taksiran dan ditulis begitu.
+     */
+    private function settleDeficits(): void
+    {
+        foreach (array_keys($this->deficits) as $productId) {
+            if (isset($this->queues[$productId])) {
+                $this->advanceAvailability($productId, '9999-12-31 23:59:59');
+                $this->coverDeficits($productId);
+            }
+
+            foreach ($this->deficits[$productId] as $deficit) {
+                $this->pushConsumption($deficit['event'], $productId, null, $deficit['qty'], $deficit['cost'], true);
+                $this->stillEstimated[$deficit['order_item']] = true;
+            }
+        }
+
+        $this->deficits = [];
+    }
+
+    /**
+     * Tulis koreksi HPP baris penjualan yang kekurangannya tertutup batch
+     * yang datang belakangan.
+     *
+     * Urutan SET penting: MySQL memakai nilai total_cost yang BARU untuk
+     * kolom-kolom sesudahnya.
+     */
+    private function applyDeficitAdjustments(): void
+    {
+        foreach (array_keys($this->deficitItems) as $orderItemId) {
+            $delta = round($this->deficitAdjustments[$orderItemId] ?? 0.0, 4);
+            $estimated = isset($this->stillEstimated[$orderItemId]);
+
+            DB::table('order_item_costs')
+                ->where('order_item_id', $orderItemId)
+                ->update([
+                    'total_cost' => DB::raw('total_cost + '.number_format($delta, 4, '.', '')),
+                    'unit_cost' => DB::raw('CASE WHEN qty_base > 0 THEN ROUND(total_cost / qty_base, 5) ELSE 0 END'),
+                    'margin' => DB::raw('revenue - total_cost'),
+                    'is_estimated' => $estimated,
+                ]);
+
+            if (! $estimated) {
+                $this->stats['estimated_items']--;
+            }
+        }
     }
 
     private function rememberAllocation(int $orderItemId, int $productId, ?int $layerId, ?int $index, float $qty, float $cost): void
@@ -1481,7 +1944,22 @@ class FifoCostService
         // seluruh qty. Konsekuensinya: kalau Loss melewati lebih dari satu
         // batch, beban opname tidak sama persis dengan nilai persediaan yang
         // keluar dari batch.
-        $takes = $this->takeFromQueue($productId, $qty, (string) $event->event_date);
+        //
+        // Stock Opname ini hitung fisik GUDANG, jadi yang hilang dimakan dari
+        // batch pasif dulu. Sisanya baru dari batch aktif: itu stok lama
+        // sebelum titik potong, yang aktif walau barangnya masih di gudang.
+        $eventDate = (string) $event->event_date;
+        $takes = [];
+        $remaining = $qty;
+
+        foreach ($this->takeFromWarehouse($productId, $qty, $eventDate) as $take) {
+            $takes[] = $take + ['index' => null, 'estimated' => false];
+            $remaining -= $take['qty'];
+        }
+
+        if ($remaining > self::EPSILON) {
+            $takes = array_merge($takes, $this->takeFromQueue($productId, $remaining, $eventDate));
+        }
 
         if ($takes === []) {
             return;

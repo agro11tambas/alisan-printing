@@ -2925,10 +2925,6 @@ class SaleListController extends Controller
                                     );
 
                                     $oldInventoryStock->increment('stock_after_sales', $restoreQty);
-
-                                    if ($oldMode === 'polosan') {
-                                        $oldInventoryStock->increment('inventory_stock', $oldQtyBase * ($oldBundleItem->quantity ?? 1));
-                                    }
                                 }
                             }
 
@@ -2947,10 +2943,6 @@ class SaleListController extends Controller
                                     );
 
                                     $newInventoryStock->decrement('stock_after_sales', $takeQty);
-
-                                    if ($itemMode === 'polosan') {
-                                        $newInventoryStock->decrement('inventory_stock', $qtyBase * ($newBundleItem->quantity ?? 1));
-                                    }
                                 }
                             }
                         } elseif ($diffQty !== 0 || $oldMode !== $itemMode) {
@@ -2972,24 +2964,6 @@ class SaleListController extends Controller
                                         $inventoryStock->decrement('stock_after_sales', $diffComponentQty);
                                     } elseif ($diffComponentQty < 0) {
                                         $inventoryStock->increment('stock_after_sales', abs($diffComponentQty));
-                                    }
-
-                                    if ($oldMode === 'printing' && $itemMode === 'polosan') {
-                                        $inventoryStock->decrement('inventory_stock', $qtyBase * ($bundleItem->quantity ?? 1));
-                                    }
-
-                                    if ($oldMode === 'polosan' && $itemMode === 'printing') {
-                                        $inventoryStock->increment('inventory_stock', $oldQtyBase * ($bundleItem->quantity ?? 1));
-                                    }
-
-                                    if ($oldMode === 'polosan' && $itemMode === 'polosan') {
-                                        $diffInventoryQty = $diffQtyBase * ($bundleItem->quantity ?? 1);
-
-                                        if ($diffInventoryQty > 0) {
-                                            $inventoryStock->decrement('inventory_stock', $diffInventoryQty);
-                                        } elseif ($diffInventoryQty < 0) {
-                                            $inventoryStock->increment('inventory_stock', abs($diffInventoryQty));
-                                        }
                                     }
                                 }
                             }
@@ -3042,10 +3016,6 @@ class SaleListController extends Controller
                             ['stock_after_sales' => 0]
                         );
                         $inventoryStock->decrement('stock_after_sales', $qty);
-
-                        if ($itemMode === 'polosan') {
-                            $inventoryStock->decrement('inventory_stock', $qty);
-                        }
                     } elseif ($type === 'bundle') {
                         $bundle = ProductBundle::with('items.product')->findOrFail($productId);
 
@@ -3102,10 +3072,6 @@ class SaleListController extends Controller
                             );
 
                             $inventoryStock->decrement('stock_after_sales', $componentStockQty);
-
-                            if ($itemMode === 'polosan') {
-                                $inventoryStock->decrement('inventory_stock', $componentStockQty);
-                            }
                         }
                     }
                 }
@@ -3127,10 +3093,6 @@ class SaleListController extends Controller
                         );
 
                         $inventoryStock->increment('stock_after_sales', $restoreQty);
-
-                        if ($item->usesPolosanFlow()) {
-                            $inventoryStock->increment('inventory_stock', $restoreQty);
-                        }
                     } elseif ($item->satuan === 'bundle') {
                         $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
 
@@ -3148,10 +3110,6 @@ class SaleListController extends Controller
                                 );
 
                                 $inventoryStock->increment('stock_after_sales', $restoreQty);
-
-                                if ($item->usesPolosanFlow()) {
-                                    $inventoryStock->increment('inventory_stock', $restoreQty);
-                                }
                             }
                         }
                     }

@@ -28,10 +28,23 @@ class CostLayer extends Model
      */
     public const SOURCE_OPNAME = 'stock_opname';
 
+    /**
+     * Batch gudang yang diaktifkan oleh Request Stock. source_id menunjuk ke
+     * batch gudang asalnya, harganya sama, tanggalnya tanggal pengiriman.
+     */
+    public const SOURCE_TRANSFER = 'request_stock';
+
+    /** Barang masih di gudang: batch pasif, tidak dimakan penjualan. */
+    public const LOCATION_WAREHOUSE = 'warehouse';
+
+    /** Barang sudah di produksi: batch aktif, dimakan penjualan. */
+    public const LOCATION_PRODUCTION = 'production';
+
     protected $fillable = [
         'product_id',
         'source_type',
         'source_id',
+        'location',
         'reference',
         'layer_date',
         'qty_in',

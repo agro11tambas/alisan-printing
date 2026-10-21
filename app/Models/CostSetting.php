@@ -38,6 +38,23 @@ class CostSetting extends Model
         return $value ? Carbon::parse($value)->startOfDay() : null;
     }
 
+    /**
+     * Sejak tanggal ini, stock in ke gudang melahirkan batch PASIF: batch itu
+     * baru ikut menilai penjualan setelah barangnya dikirim ke produksi lewat
+     * Request Stock. Stock in sebelum tanggal ini tetap aktif seperti dulu,
+     * karena riwayat pengirimannya ke produksi tidak bisa dipercaya penuh.
+     *
+     * Diisi otomatis oleh migration saat fitur ini dipasang.
+     */
+    public const PASSIVE_WAREHOUSE_FROM = 'fifo_passive_warehouse_from';
+
+    public static function passiveWarehouseFrom(): ?Carbon
+    {
+        $value = static::where('key', self::PASSIVE_WAREHOUSE_FROM)->value('value');
+
+        return $value ? Carbon::parse($value)->startOfDay() : null;
+    }
+
     public static function setStartDate(?string $date): void
     {
         static::updateOrCreate(

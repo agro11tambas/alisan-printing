@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CostLayer;
 use App\Models\CostSetting;
 use App\Services\FifoCostService;
 use Illuminate\Http\Request;
@@ -78,6 +79,7 @@ class FifoCostController extends Controller
                 'p.sku AS sku',
                 'l.reference',
                 'l.source_type',
+                'l.location',
                 'l.layer_date',
                 'l.qty_in',
                 'l.qty_remaining',
@@ -119,7 +121,7 @@ class FifoCostController extends Controller
                 'product_name' => $row->product_name,
                 'sku' => $row->sku ?: '-',
                 'reference' => $row->reference ?: '-',
-                'source' => $row->source_type === 'opening_stock' ? 'Opening Stock' : 'Stock In Purchase',
+                'source' => $this->layerSourceLabel($row->source_type, $row->location),
                 'layer_date' => $row->layer_date ? date('d/m/Y', strtotime($row->layer_date)) : '-',
                 'qty_in' => number_format((float) $row->qty_in, 0, ',', '.'),
                 'qty_used' => number_format((float) $row->qty_in - (float) $row->qty_remaining, 0, ',', '.'),
@@ -133,6 +135,19 @@ class FifoCostController extends Controller
             'has_more' => $total > ($start + $length),
             'summary' => $this->layerSummary($request),
         ]);
+    }
+
+    /** Asal batch, ditambah penanda Pasif untuk batch yang barangnya masih di gudang. */
+    private function layerSourceLabel(?string $sourceType, ?string $location): string
+    {
+        $label = match ($sourceType) {
+            CostLayer::SOURCE_OPENING => 'Opening Stock',
+            CostLayer::SOURCE_OPNAME => 'Stock Opname',
+            CostLayer::SOURCE_TRANSFER => 'Request Stock (aktif)',
+            default => 'Stock In Purchase',
+        };
+
+        return $location === CostLayer::LOCATION_WAREHOUSE ? $label.' · Pasif (gudang)' : $label;
     }
 
     /** Nilai persediaan menurut sisa batch, untuk kartu ringkasan di atas tabel. */
