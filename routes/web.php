@@ -844,6 +844,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::post('/erp/customer-accounts/store', [CustomerAccountController::class, 'store']);
         Route::get('/erp/customer-accounts/edit/{id}', [CustomerAccountController::class, 'edit']);
         Route::post('/erp/customer-accounts/{id}/password-reset-link', [CustomerAccountController::class, 'generatePasswordResetLink']);
+        Route::post('/erp/customer-accounts/{id}/login-link', [CustomerAccountController::class, 'generateLoginLink']);
         Route::put('/erp/customer-accounts/update/{id}', [CustomerAccountController::class, 'update']);
         Route::put('/erp/customer-accounts/delete/{id}', [CustomerAccountController::class, 'delete']);
     });

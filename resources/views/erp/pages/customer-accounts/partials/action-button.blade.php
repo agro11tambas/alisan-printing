@@ -18,6 +18,16 @@
         </li>
 
         <li>
+            <button type="button" class="dropdown-item btn-login-link" data-bs-toggle="modal"
+                data-bs-target="#modalCustomerLoginLink" data-name="{{ $account->name }}"
+                data-phone="{{ $account->whatsapp_number }}"
+                data-url="{{ url('/erp/customer-accounts/' . $account->id . '/login-link') }}">
+                <i class="feather feather-link me-3"></i>
+                <span>Buat Link Login</span>
+            </button>
+        </li>
+
+        <li>
             <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                 data-bs-target="#modalDeleteCustomerAccount" data-id="{{ $account->id }}"
                 data-name="{{ $account->name }}" data-url="{{ url('/erp/customer-accounts/delete/' . $account->id) }}">

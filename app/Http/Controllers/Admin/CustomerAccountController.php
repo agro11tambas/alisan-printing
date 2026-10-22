@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CustomerAccount;
+use App\Models\CustomerLoginLink;
 use App\Models\CustomerPasswordResetToken;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -162,6 +164,49 @@ class CustomerAccountController extends Controller
             'message' => 'Link reset password berhasil dibuat dan berlaku selama 24 jam.',
             'data' => [
                 'reset_url' => $resetUrl,
+                'expires_at' => $expiresAt->toIso8601String(),
+            ],
+        ]);
+    }
+
+    public function generateLoginLink(Request $request, $id)
+    {
+        $customerAccount = CustomerAccount::findOrFail($id);
+
+        if (! $customerAccount->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link login hanya dapat dibuat untuk akun yang aktif.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'expires_in_hours' => 'nullable|integer|min:1|max:168',
+            'single_use' => 'nullable|boolean',
+        ]);
+
+        $expiresInHours = (int) ($validated['expires_in_hours'] ?? 24);
+        $singleUse = $request->has('single_use') ? $request->boolean('single_use') : true;
+
+        $code = CustomerLoginLink::generateCode();
+        $expiresAt = now()->addHours($expiresInHours);
+
+        CustomerLoginLink::create([
+            'customer_account_id' => $customerAccount->id,
+            'code_hash' => CustomerLoginLink::hashCode($code),
+            'single_use' => $singleUse,
+            'expires_at' => $expiresAt,
+            'created_by' => Auth::id(),
+        ]);
+
+        $websiteUrl = rtrim(config('app.frontend_website_url'), '/');
+        $loginUrl = $websiteUrl.'/m/'.$code;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Link login berhasil dibuat dan berlaku selama '.$expiresInHours.' jam.',
+            'data' => [
+                'login_url' => $loginUrl,
                 'expires_at' => $expiresAt->toIso8601String(),
             ],
         ]);
