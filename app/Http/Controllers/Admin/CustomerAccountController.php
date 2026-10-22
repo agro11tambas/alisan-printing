@@ -180,34 +180,90 @@ class CustomerAccountController extends Controller
             ], 422);
         }
 
+        // expires_in_hours yang kosong berarti link tidak pernah kedaluwarsa —
+        // link dimatikan lewat tombol cabut, bukan lewat umur.
         $validated = $request->validate([
-            'expires_in_hours' => 'nullable|integer|min:1|max:168',
+            'expires_in_hours' => 'nullable|integer|min:1',
             'single_use' => 'nullable|boolean',
         ]);
 
-        $expiresInHours = (int) ($validated['expires_in_hours'] ?? 24);
-        $singleUse = $request->has('single_use') ? $request->boolean('single_use') : true;
+        $expiresInHours = isset($validated['expires_in_hours']) && $validated['expires_in_hours'] !== null
+            ? (int) $validated['expires_in_hours']
+            : null;
+        $singleUse = $request->boolean('single_use');
 
         $code = CustomerLoginLink::generateCode();
-        $expiresAt = now()->addHours($expiresInHours);
+        $expiresAt = $expiresInHours ? now()->addHours($expiresInHours) : null;
 
-        CustomerLoginLink::create([
-            'customer_account_id' => $customerAccount->id,
-            'code_hash' => CustomerLoginLink::hashCode($code),
-            'single_use' => $singleUse,
-            'expires_at' => $expiresAt,
-            'created_by' => Auth::id(),
-        ]);
+        // Satu link aktif per customer: link lama akun ini dicabut, mengikuti
+        // semangat updateOrCreate() di generatePasswordResetLink().
+        $revokedCount = DB::transaction(function () use ($customerAccount, $code, $singleUse, $expiresAt) {
+            $revoked = CustomerLoginLink::query()
+                ->where('customer_account_id', $customerAccount->id)
+                ->whereNull('revoked_at')
+                ->update([
+                    'revoked_at' => now(),
+                    'revoked_by' => Auth::id(),
+                ]);
+
+            CustomerLoginLink::create([
+                'customer_account_id' => $customerAccount->id,
+                'code_hash' => CustomerLoginLink::hashCode($code),
+                'single_use' => $singleUse,
+                'expires_at' => $expiresAt,
+                'created_by' => Auth::id(),
+            ]);
+
+            return $revoked;
+        });
 
         $websiteUrl = rtrim(config('app.frontend_website_url'), '/');
         $loginUrl = $websiteUrl.'/m/'.$code;
 
+        $message = $expiresAt
+            ? 'Link login berhasil dibuat dan berlaku selama '.$expiresInHours.' jam.'
+            : 'Link login berhasil dibuat dan berlaku sampai dicabut.';
+
+        if ($revokedCount > 0) {
+            $message .= ' Link login lama akun ini sudah dicabut.';
+        }
+
         return response()->json([
             'success' => true,
-            'message' => 'Link login berhasil dibuat dan berlaku selama '.$expiresInHours.' jam.',
+            'message' => $message,
             'data' => [
                 'login_url' => $loginUrl,
-                'expires_at' => $expiresAt->toIso8601String(),
+                'expires_at' => $expiresAt?->toIso8601String(),
+                'single_use' => $singleUse,
+                'revoked_previous' => $revokedCount,
+            ],
+        ]);
+    }
+
+    public function revokeLoginLink($id)
+    {
+        $customerAccount = CustomerAccount::findOrFail($id);
+
+        $revokedCount = CustomerLoginLink::query()
+            ->where('customer_account_id', $customerAccount->id)
+            ->whereNull('revoked_at')
+            ->update([
+                'revoked_at' => now(),
+                'revoked_by' => Auth::id(),
+            ]);
+
+        if ($revokedCount === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun ini tidak punya link login aktif.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Link login berhasil dicabut. Link yang sudah terlanjur dikirim tidak bisa dipakai lagi.',
+            'data' => [
+                'revoked' => $revokedCount,
             ],
         ]);
     }

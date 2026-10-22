@@ -28,6 +28,15 @@
         </li>
 
         <li>
+            <button type="button" class="dropdown-item btn-revoke-login-link" data-bs-toggle="modal"
+                data-bs-target="#modalRevokeCustomerLoginLink" data-name="{{ $account->name }}"
+                data-url="{{ url('/erp/customer-accounts/' . $account->id . '/login-link/revoke') }}">
+                <i class="feather feather-slash me-3"></i>
+                <span>Cabut Link Login</span>
+            </button>
+        </li>
+
+        <li>
             <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                 data-bs-target="#modalDeleteCustomerAccount" data-id="{{ $account->id }}"
                 data-name="{{ $account->name }}" data-url="{{ url('/erp/customer-accounts/delete/' . $account->id) }}">

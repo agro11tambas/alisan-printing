@@ -274,7 +274,12 @@ class CustomerAuthController extends Controller
                 return ['error' => 'Link login tidak dikenal.'];
             }
 
-            if ($link->expires_at->isPast()) {
+            if ($link->isRevoked()) {
+                return ['error' => 'Link login sudah dicabut.'];
+            }
+
+            // expires_at null = tidak pernah kedaluwarsa.
+            if ($link->isExpired()) {
                 return ['error' => 'Link login sudah kedaluwarsa.'];
             }
 
@@ -288,11 +293,14 @@ class CustomerAuthController extends Controller
                 return ['error' => 'Akun customer tidak aktif.'];
             }
 
-            // used_at/used_ip juga jadi satu-satunya jejak siapa yang masuk
-            // kalau nanti ada sengketa order.
+            // Link boleh dipakai berkali-kali, jadi used_at/used_ip menyimpan
+            // pemakaian terakhir — satu-satunya jejak siapa yang masuk kalau
+            // nanti ada sengketa order. use_count yang memperlihatkan kalau
+            // satu link dipakai jauh lebih sering dari seharusnya.
             $link->forceFill([
                 'used_at' => now(),
                 'used_ip' => $request->ip(),
+                'use_count' => $link->use_count + 1,
             ])->save();
 
             return ['account' => $account];

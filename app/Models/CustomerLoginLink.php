@@ -10,10 +10,12 @@ class CustomerLoginLink extends Model
     use HasFactory;
 
     /**
-     * Panjang kode base62 yang dipakai di URL /m/<kode>. Dipatok pendek supaya
-     * link enak dikirim lewat WhatsApp; endpoint penebusannya wajib di-throttle.
+     * Panjang kode base62 yang dipakai di URL /m/<kode>. 16 karakter, bukan 8:
+     * link ini permanen, jadi penebak punya waktu tak terbatas dan peluangnya
+     * dikali jumlah link aktif. 62^16 ≈ 4,8 × 10^28 menutup perhitungan itu,
+     * dan URL-nya masih pendek untuk WhatsApp.
      */
-    public const CODE_LENGTH = 8;
+    public const CODE_LENGTH = 16;
 
     protected $fillable = [
         'customer_account_id',
@@ -22,6 +24,9 @@ class CustomerLoginLink extends Model
         'expires_at',
         'used_at',
         'used_ip',
+        'use_count',
+        'revoked_at',
+        'revoked_by',
         'created_by',
     ];
 
@@ -31,13 +36,32 @@ class CustomerLoginLink extends Model
             'single_use' => 'boolean',
             'expires_at' => 'datetime',
             'used_at' => 'datetime',
+            'revoked_at' => 'datetime',
+            'use_count' => 'integer',
         ];
     }
 
     /**
-     * 8 karakter base62 ≈ 47 bit. random_int, bukan rand/mt_rand/uniqid —
-     * yang terakhir dapat diprediksi, dan di sini itu berarti tamu bisa
-     * menebak link login orang lain.
+     * expires_at null = tidak pernah kedaluwarsa.
+     */
+    public function isExpired(): bool
+    {
+        return $this->expires_at && $this->expires_at->isPast();
+    }
+
+    public function isRevoked(): bool
+    {
+        return $this->revoked_at !== null;
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull('revoked_at');
+    }
+
+    /**
+     * random_int, bukan rand/mt_rand/uniqid — yang terakhir dapat diprediksi,
+     * dan di sini itu berarti tamu bisa menebak link login orang lain.
      */
     public static function generateCode(): string
     {
@@ -64,5 +88,10 @@ class CustomerLoginLink extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function revoker()
+    {
+        return $this->belongsTo(User::class, 'revoked_by');
     }
 }
