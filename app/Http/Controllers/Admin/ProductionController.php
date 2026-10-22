@@ -314,10 +314,9 @@ class ProductionController extends Controller
          * });
          */
         $grouped = $allData->groupBy(function ($item) {
+            // Satu baris per Purchase List anak, tidak digabung per Purchase Order.
             if ($item->purchase_id) {
-                return $item->purchase?->parent_purchase_id
-                    ? 'purchase_order_'.$item->purchase->parent_purchase_id
-                    : 'purchase_list_'.$item->purchase_id;
+                return 'purchase_list_'.$item->purchase_id;
             }
 
             return 'inventory_'.$item->id;
@@ -344,9 +343,10 @@ class ProductionController extends Controller
         return response()->json([
             'data' => $paginated->map(function ($items) {
                 $first = $items->first();
-                $purchaseOrder = $first->purchase?->parentPurchase;
-                $groupDate = $purchaseOrder?->purchase_date
-                    ?? $first->purchase?->purchase_date
+                // PO induk hanya ditampilkan sebagai keterangan; aksi dan
+                // angkanya tetap milik Purchase List ini sendiri.
+                $parentPurchase = $first->purchase?->parentPurchase;
+                $groupDate = $first->purchase?->purchase_date
                     ?? $first->created_at;
 
                 // Partner + badge
@@ -363,7 +363,7 @@ class ProductionController extends Controller
 
                 // $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->format('F Y');
                 $dates = $items->map(fn($inv) => Carbon::parse($inv->purchase?->purchase_date ?? $inv->created_at));
-                $month = $purchaseOrder
+                $month = $first->purchase_id
                     ? Carbon::parse($groupDate)->format('M Y')
                     : $dates->min()->format('M Y') . ' – ' . $dates->max()->format('M Y');
 
@@ -385,7 +385,6 @@ class ProductionController extends Controller
                     : '<span class="badge bg-soft-warning text-warning">Progress</span>';
 
                 $supplierId = $first->purchase?->supplier?->id;
-                $purchaseOrderId = $purchaseOrder?->id;
 
                 $actionHtml = view(
                     'erp.pages.production.stock-in.partials.action-button-stock-in',
@@ -395,22 +394,24 @@ class ProductionController extends Controller
                         // 'month'       => $monthNum,
                         'isCompleted' => $isGroupCompleted,
                         'inventory'   => $first,
-                        'inventoryId' => $first->purchase_id && ! $purchaseOrderId ? $first->id : null,
-                        'purchaseOrderId' => $purchaseOrderId,
+                        'inventoryId' => $first->purchase_id ? $first->id : null,
+                        'purchaseOrderId' => null,
                     ]
                 )->render();
 
-                $numbersList = $purchaseOrder
-                    ? collect([$purchaseOrder->purchase_number])
-                    : $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
-                        ->filter()->unique()->values();
+                $numbersList = $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
+                    ->filter()->unique()->values();
 
                 $numberHtml = $numbersList->implode('<br>');
+                $parentHtml = $parentPurchase
+                    ? '<small class="text-muted d-block">PO: ' . e($parentPurchase->purchase_number) . '</small>'
+                    : '';
 
                 $transactionDisplay = '
                 <div>
                     <div>' . $badge . '</div>
                     <div class="fw-semibold">' . $numberHtml . $completeIcon . '</div>
+                    ' . $parentHtml . '
                     <small class="text-muted">' . $month . ' (' . $items->count() . ' transactions)</small>
                 </div>
             ';
