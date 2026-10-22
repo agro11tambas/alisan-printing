@@ -43,6 +43,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:30,1');
         Route::post('/password-reset', [CustomerAuthController::class, 'resetPassword'])
             ->middleware('throttle:5,1');
+        // Publik dan tanpa auth: website memanggilnya tanpa header Authorization.
+        // Kode hanya 8 karakter, jadi throttle-nya wajib seperti /login.
+        Route::post('/login-link/redeem', [CustomerAuthController::class, 'redeemLoginLink'])
+            ->middleware('throttle:5,1');
 
         // Protected customer auth
         Route::middleware('auth:sanctum')->group(function () {

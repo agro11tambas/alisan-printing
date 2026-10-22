@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Public;
 use App\Http\Controllers\Controller;
 use App\Models\Customers;
 use App\Models\CustomerAccount;
+use App\Models\CustomerLoginLink;
 use App\Models\CustomerPasswordResetToken;
 use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
@@ -104,6 +105,16 @@ class CustomerAuthController extends Controller
             ], 403);
         }
 
+        return $this->issueCustomerSession($account);
+    }
+
+    /**
+     * Satu-satunya tempat sesi customer diterbitkan, supaya login biasa dan
+     * link login mengembalikan bentuk respons yang sama persis — website
+     * memakai tipe dan jalur penyimpanan sesi yang sama untuk keduanya.
+     */
+    private function issueCustomerSession(CustomerAccount $account)
+    {
         $account->update([
             'last_login_at' => now(),
         ]);
@@ -115,6 +126,7 @@ class CustomerAuthController extends Controller
             'message' => 'Login success.',
             'data' => [
                 'token' => $token,
+                'token_type' => 'Bearer',
                 'customer' => $account->load(['customer', 'customers']),
             ],
         ]);
@@ -228,6 +240,71 @@ class CustomerAuthController extends Controller
             'success' => true,
             'message' => 'Password berhasil diubah. Silakan login menggunakan password baru.',
         ]);
+    }
+
+    /**
+     * Penebusan link login sekali pakai (/m/<kode> di website).
+     *
+     * Semua penolakan yang disengaja wajib 422 dengan pesan berbahasa Indonesia:
+     * hanya status itu yang ditampilkan apa adanya oleh website, status lain
+     * diganti pesan umum sehingga pesan di sini tidak akan pernah terlihat.
+     */
+    public function redeemLoginLink(Request $request)
+    {
+        // Pesan validasi ikut dibuat berbahasa Indonesia: bentuk gagalnya juga
+        // 422, jadi website akan menampilkannya apa adanya ke customer.
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:64'],
+        ], [
+            'code.required' => 'Link login tidak dikenal.',
+            'code.string' => 'Link login tidak dikenal.',
+            'code.max' => 'Link login tidak dikenal.',
+        ]);
+
+        // Kunci barisnya di dalam transaksi: preview link WhatsApp dan klik
+        // customer bisa datang nyaris bersamaan, dan hanya satu yang boleh
+        // menandai link terpakai.
+        $result = DB::transaction(function () use ($validated, $request) {
+            $link = CustomerLoginLink::query()
+                ->where('code_hash', CustomerLoginLink::hashCode($validated['code']))
+                ->lockForUpdate()
+                ->first();
+
+            if (! $link) {
+                return ['error' => 'Link login tidak dikenal.'];
+            }
+
+            if ($link->expires_at->isPast()) {
+                return ['error' => 'Link login sudah kedaluwarsa.'];
+            }
+
+            if ($link->single_use && $link->used_at) {
+                return ['error' => 'Link login sudah pernah dipakai.'];
+            }
+
+            $account = $link->customerAccount;
+
+            if (! $account || ! $account->is_active) {
+                return ['error' => 'Akun customer tidak aktif.'];
+            }
+
+            // used_at/used_ip juga jadi satu-satunya jejak siapa yang masuk
+            // kalau nanti ada sengketa order.
+            $link->forceFill([
+                'used_at' => now(),
+                'used_ip' => $request->ip(),
+            ])->save();
+
+            return ['account' => $account];
+        });
+
+        if (isset($result['error'])) {
+            return response()->json([
+                'message' => $result['error'],
+            ], 422);
+        }
+
+        return $this->issueCustomerSession($result['account']);
     }
 
     public function me(Request $request)
