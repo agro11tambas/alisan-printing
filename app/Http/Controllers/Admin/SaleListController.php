@@ -1183,9 +1183,6 @@ class SaleListController extends Controller
                 'addresses:id,customer_id,business_name,address,google_maps',
                 'accounts:id,name,whatsapp_number',
             ])
-            ->when($user->role === 'Sales', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
             ->get();
         $priceModes = PriceMode::active()->orderBy('sort_order')->orderBy('name')->get();
         $modeDiscounts = Discount::modeDiscountsPayload();
@@ -1762,9 +1759,6 @@ class SaleListController extends Controller
                 'addresses:id,customer_id,business_name,address,google_maps',
                 'accounts:id,name,email,whatsapp_number',
             ])
-            ->when($user->role === 'Sales', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
             ->get();
 
         $discount = Discount::first();

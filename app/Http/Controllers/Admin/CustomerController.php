@@ -26,10 +26,6 @@ class CustomerController extends Controller
         $user = Auth::user();
         $customers = Customers::query()->with('user')->orderBy('name');
 
-        if ($user->role === 'Sales') {
-            $customers->where('user_id', $user->id);
-        }
-
         if ($request->filled('name')) {
             $keyword = $request->name;
             $customers->where(function ($q) use ($keyword) {

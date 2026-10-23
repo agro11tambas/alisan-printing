@@ -24,7 +24,7 @@ class CustomerAccountController extends Controller
 
     public function data(Request $request)
     {
-        $customerAccounts = CustomerAccount::with(['passwordResetToken', 'customers', 'customer'])
+        $customerAccounts = CustomerAccount::with(['passwordResetToken', 'latestLoginLink', 'customers', 'customer'])
             ->orderBy('name');
 
         if ($request->filled('name')) {
@@ -74,10 +74,39 @@ class CustomerAccountController extends Controller
                     default => '<span class="badge bg-soft-secondary text-secondary">Belum Dibuat</span>',
                 };
             })
+            ->addColumn('login_link_status', function ($account) {
+                $link = $account->latestLoginLink;
+
+                if (! $link) {
+                    return '<span class="badge bg-soft-secondary text-secondary">Belum Dibuat</span>';
+                }
+
+                $status = $link->status();
+                $badge = match ($status) {
+                    'active' => '<span class="badge bg-soft-success text-success">Aktif</span>',
+                    'used' => '<span class="badge bg-soft-info text-info">Sudah Dipakai</span>',
+                    'expired' => '<span class="badge bg-soft-danger text-danger">Kedaluwarsa</span>',
+                    'revoked' => '<span class="badge bg-soft-warning text-warning">Dicabut</span>',
+                };
+
+                $details = [$link->single_use ? 'Sekali pakai' : 'Berkali-kali'];
+
+                if ($status === 'active') {
+                    $details[] = $link->expires_at
+                        ? 's/d '.$link->expires_at->format('d M Y H:i')
+                        : 'tanpa batas waktu';
+                }
+
+                if ($link->use_count > 0) {
+                    $details[] = 'dipakai '.$link->use_count.'x';
+                }
+
+                return $badge.'<div class="fs-11 text-muted mt-1">'.e(implode(' · ', $details)).'</div>';
+            })
             ->addColumn('action', function ($account) {
                 return view('erp.pages.customer-accounts.partials.action-button', compact('account'))->render();
             })
-            ->rawColumns(['action', 'whatsapp_number', 'is_active', 'password_reset_status'])
+            ->rawColumns(['action', 'whatsapp_number', 'is_active', 'password_reset_status', 'login_link_status'])
             ->make(true);
     }
 
@@ -195,9 +224,22 @@ class CustomerAccountController extends Controller
         $code = CustomerLoginLink::generateCode();
         $expiresAt = $expiresInHours ? now()->addHours($expiresInHours) : null;
 
-        // Satu link aktif per customer: link lama akun ini dicabut, mengikuti
-        // semangat updateOrCreate() di generatePasswordResetLink().
+        // Satu link aktif per customer. Link yang masih bisa dipakai harus
+        // dicabut admin dulu lewat Cabut Link Login, supaya link yang sudah
+        // dikirim ke customer tidak mati diam-diam karena salah klik. Link yang
+        // sudah kedaluwarsa/terpakai boleh langsung diganti dan dicabut di sini.
         $revokedCount = DB::transaction(function () use ($customerAccount, $code, $singleUse, $expiresAt) {
+            $hasUsableLink = CustomerLoginLink::query()
+                ->where('customer_account_id', $customerAccount->id)
+                ->whereNull('revoked_at')
+                ->lockForUpdate()
+                ->get()
+                ->contains(fn (CustomerLoginLink $link) => $link->isUsable());
+
+            if ($hasUsableLink) {
+                return null;
+            }
+
             $revoked = CustomerLoginLink::query()
                 ->where('customer_account_id', $customerAccount->id)
                 ->whereNull('revoked_at')
@@ -217,16 +259,19 @@ class CustomerAccountController extends Controller
             return $revoked;
         });
 
+        if ($revokedCount === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun ini masih punya link login aktif. Cabut link login lama dulu sebelum membuat yang baru.',
+            ], 422);
+        }
+
         $websiteUrl = rtrim(config('app.frontend_website_url'), '/');
         $loginUrl = $websiteUrl.'/m/'.$code;
 
         $message = $expiresAt
             ? 'Link login berhasil dibuat dan berlaku selama '.$expiresInHours.' jam.'
             : 'Link login berhasil dibuat dan berlaku sampai dicabut.';
-
-        if ($revokedCount > 0) {
-            $message .= ' Link login lama akun ini sudah dicabut.';
-        }
 
         return response()->json([
             'success' => true,

@@ -81,6 +81,17 @@ class PurchaseListController extends Controller
             $purchases->where('parent_purchase_id', $request->integer('purchase_order_id'));
         }
 
+        // ✅ Tab Progress / Completed (tidak ada "All"): Completed = sudah lunas,
+        // Progress = sisanya (Unpaid / Partially Paid), default Progress.
+        if ($request->input('payment_group') === 'completed') {
+            $purchases->whereIn('payment_status', ['Paid', 'Overpaid']);
+        } else {
+            $purchases->where(function ($query) {
+                $query->whereNotIn('payment_status', ['Paid', 'Overpaid'])
+                    ->orWhereNull('payment_status');
+            });
+        }
+
         // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {

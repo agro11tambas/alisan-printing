@@ -54,6 +54,34 @@ class CustomerLoginLink extends Model
         return $this->revoked_at !== null;
     }
 
+    public function isUsedUp(): bool
+    {
+        return $this->single_use && $this->used_at !== null;
+    }
+
+    /**
+     * Link masih bisa dipakai customer untuk masuk. Selama ini true, admin
+     * harus mencabutnya dulu sebelum boleh membuat link baru.
+     */
+    public function isUsable(): bool
+    {
+        return ! $this->isRevoked() && ! $this->isExpired() && ! $this->isUsedUp();
+    }
+
+    /**
+     * Urutan cek sama dengan CustomerAuthController::redeemLoginLink(), supaya
+     * status di ERP sama dengan alasan penolakan yang dilihat customer.
+     */
+    public function status(): string
+    {
+        return match (true) {
+            $this->isRevoked() => 'revoked',
+            $this->isExpired() => 'expired',
+            $this->isUsedUp() => 'used',
+            default => 'active',
+        };
+    }
+
     public function scopeActive($query)
     {
         return $query->whereNull('revoked_at');

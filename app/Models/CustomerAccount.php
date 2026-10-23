@@ -122,6 +122,34 @@ class CustomerAccount extends Authenticatable
         return $this->hasOne(CustomerPasswordResetToken::class);
     }
 
+    public function loginLinks()
+    {
+        return $this->hasMany(CustomerLoginLink::class);
+    }
+
+    /**
+     * Link terakhir yang dibuat. Link lama selalu dicabut sebelum link baru
+     * dibuat, jadi yang terakhir inilah yang menentukan status akun.
+     */
+    public function latestLoginLink()
+    {
+        return $this->hasOne(CustomerLoginLink::class)->latestOfMany();
+    }
+
+    public function hasUsableLoginLink(): bool
+    {
+        return (bool) $this->latestLoginLink?->isUsable();
+    }
+
+    /**
+     * Ada link yang belum dicabut (termasuk yang sudah kedaluwarsa/terpakai),
+     * yaitu yang masih bisa dimatikan lewat tombol Cabut Link Login.
+     */
+    public function hasUnrevokedLoginLink(): bool
+    {
+        return $this->latestLoginLink !== null && ! $this->latestLoginLink->isRevoked();
+    }
+
     public function getPasswordResetStatusAttribute(): string
     {
         $resetToken = $this->passwordResetToken;

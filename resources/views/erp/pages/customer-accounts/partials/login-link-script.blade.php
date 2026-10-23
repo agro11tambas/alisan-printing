@@ -1,5 +1,13 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Status dan tombol aksi (Buat/Cabut) dirender server, jadi tabel perlu
+        // dimuat ulang setelah link dibuat atau dicabut.
+        function reloadCustomerAccountTable() {
+            if (window.jQuery && $.fn.DataTable.isDataTable('#customerAccountList')) {
+                $('#customerAccountList').DataTable().ajax.reload(null, false);
+            }
+        }
+
         const loginLinkModal = document.getElementById('modalCustomerLoginLink');
         const loginLinkForm = document.getElementById('formCustomerLoginLink');
 
@@ -98,6 +106,7 @@
                     loginLinkConfirmation.classList.add('d-none');
                     loginLinkResult.classList.remove('d-none');
                     generateButton.classList.add('d-none');
+                    reloadCustomerAccountTable();
                 } catch (error) {
                     loginLinkError.textContent = error.message || 'Gagal membuat link login.';
                     loginLinkError.classList.remove('d-none');
@@ -175,6 +184,7 @@
                 revokeMessage.classList.remove('d-none');
                 revokeConfirmation.classList.add('d-none');
                 revokeButton.classList.add('d-none');
+                reloadCustomerAccountTable();
             } catch (error) {
                 revokeError.textContent = error.message || 'Gagal mencabut link login.';
                 revokeError.classList.remove('d-none');

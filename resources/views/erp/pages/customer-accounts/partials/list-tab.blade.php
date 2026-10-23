@@ -28,6 +28,7 @@
                                     <th>WhatsApp Number</th>
                                     <th>Status</th>
                                     <th>Status Buat Baru/Reset Password</th>
+                                    <th>Status Link Login</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -125,6 +126,7 @@
                     { data: 'whatsapp_number', name: 'whatsapp_number' },
                     { data: 'is_active', name: 'is_active' },
                     { data: 'password_reset_status', name: 'password_reset_status', orderable: false, searchable: false },
+                    { data: 'login_link_status', name: 'login_link_status', orderable: false, searchable: false },
                     { data: 'action', name: 'action', orderable: false, searchable: false, visible: false }
                 ]
             });

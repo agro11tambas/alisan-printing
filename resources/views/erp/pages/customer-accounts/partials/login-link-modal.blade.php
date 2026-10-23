@@ -25,12 +25,6 @@
                             sebelum menutup.
                         </div>
 
-                        <div class="alert alert-warning mb-3">
-                            Menekan Generate Link akan <strong>mencabut link login lama</strong> akun ini.
-                            Kalau link lama sudah terlanjur dikirim ke customer, link itu langsung berhenti
-                            berfungsi dan customer harus dikirimi link yang baru.
-                        </div>
-
                         <div class="mb-3">
                             <label for="loginLinkExpiresInHours" class="form-label fw-semibold">Masa Berlaku
                                 (jam)</label>
@@ -69,7 +63,7 @@
                         </div>
                         <div class="alert alert-warning mt-3 mb-0">
                             Salin sekarang. Link ini tidak bisa ditampilkan lagi setelah jendela ditutup —
-                            kalau hilang, satu-satunya jalan adalah membuat link baru, dan link ini akan ikut mati.
+                            kalau hilang, cabut link ini lewat "Cabut Link Login" lalu buat link baru.
                         </div>
                         <a href="#" class="btn btn-success mt-3" id="sendLoginLinkWhatsapp"
                             target="_blank" rel="noopener noreferrer">

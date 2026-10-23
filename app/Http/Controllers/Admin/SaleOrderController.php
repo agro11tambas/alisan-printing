@@ -387,9 +387,6 @@ class SaleOrderController extends Controller
                 'addresses:id,customer_id,business_name,address,google_maps',
                 'accounts:id,name,whatsapp_number',
             ])
-            ->when($user->role === 'Sales', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
             ->get();
         $priceModes = PriceMode::active()->ordered()->get();
         $modeDiscounts = Discount::modeDiscountsPayload();
@@ -675,9 +672,6 @@ class SaleOrderController extends Controller
         $user = Auth::user();
 
         $customers = Customers::with(['addresses', 'accounts'])
-            ->when($user->role === 'Sales', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
             ->orderBy('name', 'asc')
             ->get();
 

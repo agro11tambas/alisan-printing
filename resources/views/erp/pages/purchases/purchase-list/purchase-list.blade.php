@@ -253,6 +253,11 @@
                         <div class="table-responsive">
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="purchase-list" role="tabpanel">
+                                    {{-- Progress = Unpaid / Partially Paid, Completed = Paid --}}
+                                    <div class="btn-group btn-group-sm ms-2 mb-2" id="paymentGroupFilter" role="group">
+                                        <button type="button" class="btn btn-primary" data-group="progress">Progress</button>
+                                        <button type="button" class="btn btn-outline-primary" data-group="completed">Completed</button>
+                                    </div>
                                     <table class="table table-hover bg-transparent" id="purchaseListTable">
                                         <thead>
                                             <tr>
@@ -826,6 +831,23 @@
 
             let searchTimer = null;
             let currentRequest = null;
+            let paymentGroup = 'progress';
+
+            $('#paymentGroupFilter').on('click', 'button', function() {
+                const group = $(this).data('group');
+                if (group === paymentGroup) return;
+
+                paymentGroup = group;
+                $('#paymentGroupFilter button').removeClass('btn-primary').addClass('btn-outline-primary');
+                $(this).removeClass('btn-outline-primary').addClass('btn-primary');
+
+                // Batalkan request tab sebelumnya supaya datanya tidak tercampur
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+                isLoading = false;
+                resetAndReload();
+            });
 
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
@@ -843,6 +865,7 @@
                         start: currentPage * 50,
                         length: 50,
                         purchase_order_id: @json($purchaseOrder?->id),
+                        payment_group: paymentGroup,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
