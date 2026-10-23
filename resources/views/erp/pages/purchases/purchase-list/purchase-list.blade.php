@@ -208,34 +208,48 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-lg-4">
-                                <label for="search_type" class="fw-semibold fs-12">Filter By</label>
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <select id="search_type" class="form-control"
+                            <div class="col-lg-6">
+                                <div class="row justify-content-end">
+                                    {{-- Progress = Unpaid / Partially Paid, Completed = Paid --}}
+                                    <div class="col-lg-3">
+                                        <label for="progress_status" class="fw-semibold fs-12">Progress Status</label>
+                                        <select id="progress_status" class="form-control"
                                             style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
-                                            <option value="supplier">Supplier</option>
-                                            <option value="purchase_number">Invoice</option>
-                                            <option value="payment_status">Payment Status</option>
-                                            <option value="due_date">Due Date</option>
+                                            <option value="progress">Progress</option>
+                                            <option value="completed">Completed</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-6">
-                                        <input type="text" id="search_keyword" name="search_keyword"
-                                            class="form-control search-input"
-                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search..." />
-                                        <select id="search_payment_status" class="form-control search-input d-none"
-                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
-                                            <option value="">All</option>
-                                            <option value="Paid">Paid</option>
-                                            <option value="Unpaid">Unpaid</option>
-                                            <option value="Partially Paid">Partially Paid</option>
-                                        </select>
-                                        <select id="due_date_order" class="form-control d-none"
-                                            style="padding: 0.25rem 0.5rem;">
-                                            <option value="asc">Ascending</option>
-                                            <option value="desc">Descending</option>
-                                        </select>
+                                    <div class="col-lg-6">
+                                        <label for="search_type" class="fw-semibold fs-12">Filter By</label>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <select id="search_type" class="form-control"
+                                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                                    <option value="supplier">Supplier</option>
+                                                    <option value="purchase_number">Invoice</option>
+                                                    <option value="payment_status">Payment Status</option>
+                                                    <option value="due_date">Due Date</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <input type="text" id="search_keyword" name="search_keyword"
+                                                    class="form-control search-input"
+                                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
+                                                    placeholder="Search..." />
+                                                <select id="search_payment_status" class="form-control search-input d-none"
+                                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                                    <option value="">All</option>
+                                                    <option value="Paid">Paid</option>
+                                                    <option value="Unpaid">Unpaid</option>
+                                                    <option value="Partially Paid">Partially Paid</option>
+                                                </select>
+                                                <select id="due_date_order" class="form-control d-none"
+                                                    style="padding: 0.25rem 0.5rem;">
+                                                    <option value="asc">Ascending</option>
+                                                    <option value="desc">Descending</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -253,11 +267,6 @@
                         <div class="table-responsive">
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="purchase-list" role="tabpanel">
-                                    {{-- Progress = Unpaid / Partially Paid, Completed = Paid --}}
-                                    <div class="btn-group btn-group-sm ms-2 mb-2" id="paymentGroupFilter" role="group">
-                                        <button type="button" class="btn btn-primary" data-group="progress">Progress</button>
-                                        <button type="button" class="btn btn-outline-primary" data-group="completed">Completed</button>
-                                    </div>
                                     <table class="table table-hover bg-transparent" id="purchaseListTable">
                                         <thead>
                                             <tr>
@@ -831,23 +840,6 @@
 
             let searchTimer = null;
             let currentRequest = null;
-            let paymentGroup = 'progress';
-
-            $('#paymentGroupFilter').on('click', 'button', function() {
-                const group = $(this).data('group');
-                if (group === paymentGroup) return;
-
-                paymentGroup = group;
-                $('#paymentGroupFilter button').removeClass('btn-primary').addClass('btn-outline-primary');
-                $(this).removeClass('btn-outline-primary').addClass('btn-primary');
-
-                // Batalkan request tab sebelumnya supaya datanya tidak tercampur
-                if (currentRequest) {
-                    currentRequest.abort();
-                }
-                isLoading = false;
-                resetAndReload();
-            });
 
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
@@ -865,7 +857,7 @@
                         start: currentPage * 50,
                         length: 50,
                         purchase_order_id: @json($purchaseOrder?->id),
-                        payment_group: paymentGroup,
+                        progress_status: $('#progress_status').val(),
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -947,6 +939,15 @@
             // Payment status (RESET)
             $('#search_payment_status').on('change', function() {
                 reloadActiveTab();
+            });
+
+            // Progress status (RESET) — hanya untuk tab Purchase List
+            $('#progress_status').on('change', function() {
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+                isLoading = false;
+                resetAndReload();
             });
 
             // SHOW / HIDE custom date range
