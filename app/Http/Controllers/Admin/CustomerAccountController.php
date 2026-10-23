@@ -24,7 +24,7 @@ class CustomerAccountController extends Controller
 
     public function data(Request $request)
     {
-        $customerAccounts = CustomerAccount::with(['passwordResetToken', 'latestLoginLink', 'customers', 'customer'])
+        $customerAccounts = CustomerAccount::with(['latestLoginLink','customers', 'customer'])
             ->orderBy('name');
 
         if ($request->filled('name')) {
@@ -61,19 +61,6 @@ class CustomerAccountController extends Controller
             ->addColumn('whatsapp_number', function ($account) {
                 return '<strong>' . ($account->whatsapp_number ?? '-') . '</strong>';
             })
-            ->addColumn('is_active', function ($account) {
-                return $account->is_active
-                    ? '<span class="badge bg-soft-success text-success">Active</span>'
-                    : '<span class="badge bg-soft-danger text-danger">Inactive</span>';
-            })
-            ->addColumn('password_reset_status', function ($account) {
-                return match ($account->password_reset_status) {
-                    'pending' => '<span class="badge bg-soft-warning text-warning">Menunggu Reset</span>',
-                    'completed' => '<span class="badge bg-soft-success text-success">Sudah Reset</span>',
-                    'expired' => '<span class="badge bg-soft-danger text-danger">Kedaluwarsa</span>',
-                    default => '<span class="badge bg-soft-secondary text-secondary">Belum Dibuat</span>',
-                };
-            })
             ->addColumn('login_link_status', function ($account) {
                 $link = $account->latestLoginLink;
 
@@ -106,7 +93,7 @@ class CustomerAccountController extends Controller
             ->addColumn('action', function ($account) {
                 return view('erp.pages.customer-accounts.partials.action-button', compact('account'))->render();
             })
-            ->rawColumns(['action', 'whatsapp_number', 'is_active', 'password_reset_status', 'login_link_status'])
+            ->rawColumns(['action', 'whatsapp_number', 'login_link_status'])
             ->make(true);
     }
 

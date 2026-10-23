@@ -26,8 +26,6 @@
                                     <th>Account - Customer</th>
                                     <th>Name</th>
                                     <th>WhatsApp Number</th>
-                                    <th>Status</th>
-                                    <th>Status Buat Baru/Reset Password</th>
                                     <th>Status Link Login</th>
                                 </tr>
                             </thead>
@@ -47,6 +45,15 @@
             #customerAccountList th.desktop-only {
                 display: none !important;
             }
+        }
+
+        /* Tombol aksi yang dinonaktifkan (mis. Buat Link Login saat link masih aktif). */
+        #customerAccountList .dropdown-item:disabled,
+        #customerAccountList .dropdown-item:disabled i,
+        #customerAccountList .dropdown-item:disabled span {
+            color: #adb5bd !important;
+            background-color: transparent !important;
+            cursor: not-allowed;
         }
 
         #customerAccountList {
@@ -124,8 +131,6 @@
                     { data: 'account_customer_name', name: 'account_customer_name', orderable: false, searchable: false },
                     { data: 'name', name: 'name' },
                     { data: 'whatsapp_number', name: 'whatsapp_number' },
-                    { data: 'is_active', name: 'is_active' },
-                    { data: 'password_reset_status', name: 'password_reset_status', orderable: false, searchable: false },
                     { data: 'login_link_status', name: 'login_link_status', orderable: false, searchable: false },
                     { data: 'action', name: 'action', orderable: false, searchable: false, visible: false }
                 ]
