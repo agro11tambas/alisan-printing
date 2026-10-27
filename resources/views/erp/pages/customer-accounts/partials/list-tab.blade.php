@@ -180,10 +180,14 @@
             document.querySelectorAll('#customerModuleTabs [data-bs-toggle="tab"]').forEach(function(tab) {
                 tab.addEventListener('shown.bs.tab', function(event) {
                     const isAccounts = event.target.id === 'customer-accounts-tab';
+                    const isInactive = event.target.id === 'inactive-customers-tab';
                     const url = new URL(window.location.href);
                     if (isAccounts) {
                         url.searchParams.set('tab', 'accounts');
                         customerAccountTable.columns.adjust().draw(false);
+                    } else if (isInactive) {
+                        // Tabelnya diurus index.blade.php (dimuat saat tab dibuka).
+                        url.searchParams.set('tab', 'inactive');
                     } else {
                         url.searchParams.delete('tab');
                         if ($.fn.DataTable.isDataTable('#customerList')) {

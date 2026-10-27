@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Models\Customers;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\CustomerAddresses;
 
@@ -16,15 +17,32 @@ use Yajra\DataTables\Facades\DataTables;
 
 class CustomerController extends Controller
 {
+    // Customer dianggap tidak aktif jika order terakhirnya lebih lama dari batas ini.
+    private const INACTIVE_ORDER_MONTHS = 2;
+
     public function index()
     {
-        return view('erp.pages.customers.index');
+        return view('erp.pages.customers.index', [
+            'inactiveOrderMonths' => self::INACTIVE_ORDER_MONTHS,
+        ]);
     }
 
     public function data(Request $request)
     {
         $user = Auth::user();
-        $customers = Customers::query()->with('user')->orderBy('name');
+        $inactiveCutoff = now()->subMonths(self::INACTIVE_ORDER_MONTHS);
+        $customers = Customers::query()
+            ->with('user')
+            ->withMax('orders', 'order_date')
+            ->orderBy('name');
+
+        // Tab "Tidak Order": pernah order, tapi tidak ada order sejak batas waktu.
+        if ($request->boolean('inactive')) {
+            $customers->whereHas('orders')
+                ->whereDoesntHave('orders', function ($query) use ($inactiveCutoff) {
+                    $query->where('order_date', '>=', $inactiveCutoff);
+                });
+        }
 
         if ($request->filled('name')) {
             $keyword = $request->name;
@@ -38,8 +56,22 @@ class CustomerController extends Controller
 
         return DataTables::of($customers)
             ->addIndexColumn()
-            ->addColumn('name', function ($customer) {
-                return $customer->name;
+            ->addColumn('name', function ($customer) use ($inactiveCutoff) {
+                $name = e($customer->name);
+                $lastOrderDate = $customer->orders_max_order_date;
+
+                if ($lastOrderDate && Carbon::parse($lastOrderDate)->lt($inactiveCutoff)) {
+                    $name .= ' <span class="badge bg-warning text-dark ms-1" title="Order terakhir: '
+                        . Carbon::parse($lastOrderDate)->format('d M Y') . '">Tidak order '
+                        . self::INACTIVE_ORDER_MONTHS . ' bulan</span>';
+                }
+
+                return $name;
+            })
+            ->addColumn('last_order_date', function ($customer) {
+                return $customer->orders_max_order_date
+                    ? Carbon::parse($customer->orders_max_order_date)->format('d M Y')
+                    : '-';
             })
             ->addColumn('customer_deposit', function ($customer) {
                 return '<strong> Rp. ' . number_format($customer->customer_deposit, 0, ',', '.') . '</strong>';
@@ -50,7 +82,7 @@ class CustomerController extends Controller
             ->addColumn('user', function ($customer) {
                 return $customer->user?->name ?? '-';
             })
-            ->rawColumns(['action', 'addresses', 'customer_deposit'])
+            ->rawColumns(['action', 'addresses', 'customer_deposit', 'name'])
             ->make(true);
     }
 

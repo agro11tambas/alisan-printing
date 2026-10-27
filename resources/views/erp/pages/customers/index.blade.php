@@ -10,12 +10,14 @@
             }
         }
 
-        #customerList {
+        #customerList,
+        #inactiveCustomerList {
             width: 100% !important;
             min-width: 0;
         }
 
-        #customerList_wrapper .dataTables_scrollBody {
+        #customerList_wrapper .dataTables_scrollBody,
+        #inactiveCustomerList_wrapper .dataTables_scrollBody {
             background-image: none !important;
             height: 60vh !important;
             overflow-y: auto !important;
@@ -78,14 +80,25 @@
             });
         </script>
     @endif
-    @php $accountsTabActive = request('tab') === 'accounts'; @endphp
+    @php
+        $accountsTabActive = request('tab') === 'accounts';
+        $inactiveTabActive = request('tab') === 'inactive';
+        $customersTabActive = !$accountsTabActive && !$inactiveTabActive;
+    @endphp
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <ul class="nav nav-tabs mb-3" id="customerModuleTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link {{ $accountsTabActive ? '' : 'active' }}" id="customers-tab"
+                <button class="nav-link {{ $customersTabActive ? 'active' : '' }}" id="customers-tab"
                     data-bs-toggle="tab" data-bs-target="#customers-tab-pane" type="button" role="tab"
-                    aria-controls="customers-tab-pane" aria-selected="{{ $accountsTabActive ? 'false' : 'true' }}">
+                    aria-controls="customers-tab-pane" aria-selected="{{ $customersTabActive ? 'true' : 'false' }}">
                     Customer
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {{ $inactiveTabActive ? 'active' : '' }}" id="inactive-customers-tab"
+                    data-bs-toggle="tab" data-bs-target="#inactive-customers-tab-pane" type="button" role="tab"
+                    aria-controls="inactive-customers-tab-pane" aria-selected="{{ $inactiveTabActive ? 'true' : 'false' }}">
+                    Tidak Order {{ $inactiveOrderMonths }} Bulan
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -98,7 +111,7 @@
         </ul>
 
         <div class="tab-content" id="customerModuleTabContent">
-            <div class="tab-pane fade {{ $accountsTabActive ? '' : 'show active' }}" id="customers-tab-pane" role="tabpanel"
+            <div class="tab-pane fade {{ $customersTabActive ? 'show active' : '' }}" id="customers-tab-pane" role="tabpanel"
                 aria-labelledby="customers-tab" tabindex="0">
                 <div class="row">
             <div class="col-lg-12">
@@ -137,6 +150,48 @@
                     </div>
                 </div>
             </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade {{ $inactiveTabActive ? 'show active' : '' }}" id="inactive-customers-tab-pane"
+                role="tabpanel" aria-labelledby="inactive-customers-tab" tabindex="0">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="card stretch stretch-full">
+                            <div class="card-body p-0">
+                                <div class="row g-3 p-2 justify-content-between align-items-end">
+                                    <div class="col-lg-auto">
+                                        <span class="fs-12 text-muted">
+                                            Customer yang pernah order, tapi tidak ada order lagi selama
+                                            {{ $inactiveOrderMonths }} bulan terakhir.
+                                        </span>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label for="inactiveName" class="fw-semibold fs-12">Customer Name</label>
+                                        <input type="text" id="inactiveName" class="form-control"
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
+                                            autocomplete="off" placeholder="Search Customer Name...">
+                                    </div>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table bg-transparent table-hover" id="inactiveCustomerList">
+                                        <thead>
+                                            <tr>
+                                                <th class="wd-30">No</th>
+                                                <th>Nama</th>
+                                                <th>Order Terakhir</th>
+                                                <th>Customer Deposit</th>
+                                                <th>User</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -325,48 +380,141 @@
                 }
             });
 
-            $('#customerList tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return;
+            // Klik baris -> tampilkan tombol aksi di bawahnya. Dipakai tab Customer & Tidak Order.
+            function bindActionRow(tableSelector, getTable) {
+                $(tableSelector + ' tbody').on('click', 'tr', function(e) {
+                    if ($(e.target).closest('td.dt-control').length) return;
 
-                let $tr = $(this);
-                if ($tr.hasClass('action-row')) return;
+                    let $tr = $(this);
+                    if ($tr.hasClass('action-row')) return;
 
-                let row = dataTable.row($tr);
+                    let row = getTable().row($tr);
+                    if (!row.data()) return;
 
-                $('#customerList tbody tr')
-                    .removeClass('action-shown')
-                    .next('.action-row')
-                    .remove();
+                    $(tableSelector + ' tbody tr')
+                        .removeClass('action-shown')
+                        .next('.action-row')
+                        .remove();
 
-                if ($tr.hasClass('action-shown')) {
-                    $tr.removeClass('action-shown');
-                } else {
-                    let actionHtml = row.data().action;
+                    if ($tr.hasClass('action-shown')) {
+                        $tr.removeClass('action-shown');
+                    } else {
+                        let actionHtml = row.data().action;
 
-                    let colCount = $tr.find('td').length;
-                    let $actionRow = $(`
-                        <tr class="action-row">
-                            <td colspan="${colCount}">
-                                <div class="d-flex justify-content-center">
-                                    ${actionHtml}
-                                </div>
-                            </td>
-                        </tr>
-                    `);
+                        let colCount = $tr.find('td').length;
+                        let $actionRow = $(`
+                            <tr class="action-row">
+                                <td colspan="${colCount}">
+                                    <div class="d-flex justify-content-center">
+                                        ${actionHtml}
+                                    </div>
+                                </td>
+                            </tr>
+                        `);
 
-                    $tr.after($actionRow);
-                    $tr.addClass('action-shown');
+                        $tr.after($actionRow);
+                        $tr.addClass('action-shown');
+                    }
+                });
+
+                $(document).on('click', function(e) {
+                    if ($(e.target).closest(tableSelector).length) return;
+
+                    $(tableSelector + ' tbody tr')
+                        .removeClass('action-shown')
+                        .next('.action-row')
+                        .remove();
+                });
+            }
+
+            bindActionRow('#customerList', () => dataTable);
+
+            // Tab "Tidak Order": tabel baru dimuat saat tab pertama kali dibuka.
+            let inactiveTable = null;
+            let lastInactiveKeyword = '';
+
+            function initInactiveTable() {
+                if (inactiveTable) {
+                    inactiveTable.columns.adjust().draw(false);
+                    return;
+                }
+
+                inactiveTable = $('#inactiveCustomerList').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    deferRender: true,
+                    scrollY: 600,
+                    scroller: true,
+                    paging: true,
+                    searching: false,
+                    lengthChange: false,
+                    info: false,
+                    pagingType: "simple",
+                    order: [
+                        [1, 'asc']
+                    ],
+                    ajax: {
+                        url: "{{ url('/erp/customers/data') }}",
+                        data: function(d) {
+                            d.inactive = 1;
+                            d.name = $('#inactiveName').val();
+                        }
+                    },
+                    columns: [{
+                            data: 'DT_RowIndex',
+                            name: 'DT_RowIndex',
+                            orderable: false,
+                            searchable: false,
+                        },
+                        {
+                            data: 'name',
+                            name: 'name',
+                        },
+                        {
+                            data: 'last_order_date',
+                            name: 'last_order_date',
+                            orderable: false,
+                            searchable: false,
+                        },
+                        {
+                            data: 'customer_deposit',
+                            name: 'customer_deposit',
+                        },
+                        {
+                            data: 'user',
+                            name: 'user',
+                            orderable: false,
+                        },
+                    ]
+                });
+
+                bindActionRow('#inactiveCustomerList', () => inactiveTable);
+            }
+
+            $('#inactiveName').on('keypress', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+
+                    const keyword = $(this).val().trim();
+                    if (keyword !== lastInactiveKeyword && inactiveTable) {
+                        $(this).val(keyword);
+                        lastInactiveKeyword = keyword;
+                        inactiveTable.ajax.reload(null, true);
+                    }
                 }
             });
 
-            $(document).on('click', function(e) {
-                if ($(e.target).closest('#customerList').length) return;
-
-                $('#customerList tbody tr')
-                    .removeClass('action-shown')
-                    .next('.action-row')
-                    .remove();
+            $('#inactiveName').on('input', function() {
+                if ($(this).val().trim() === '' && lastInactiveKeyword !== '' && inactiveTable) {
+                    lastInactiveKeyword = '';
+                    inactiveTable.ajax.reload(null, true);
+                }
             });
+
+            document.getElementById('inactive-customers-tab').addEventListener('shown.bs.tab', initInactiveTable);
+            if ($('#inactive-customers-tab-pane').hasClass('active')) {
+                initInactiveTable();
+            }
 
             $(document).on('click', function(e) {
                 if (!$(e.target).closest('#customerList tbody tr, #customerListMobile tbody tr').length) {
@@ -449,6 +597,9 @@
                         if (res.success) {
                             bootstrap.Modal.getInstance(depositModal).hide();
                             dataTable.ajax.reload(null, false);
+                            if (inactiveTable) {
+                                inactiveTable.ajax.reload(null, false);
+                            }
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Berhasil!',
