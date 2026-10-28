@@ -36,12 +36,11 @@ class CustomerController extends Controller
             ->withMax('orders', 'order_date')
             ->orderBy('name');
 
-        // Tab "Tidak Order": pernah order, tapi tidak ada order sejak batas waktu.
+        // Tab "Tidak Order": tidak ada order sejak batas waktu, termasuk yang belum pernah order sama sekali.
         if ($request->boolean('inactive')) {
-            $customers->whereHas('orders')
-                ->whereDoesntHave('orders', function ($query) use ($inactiveCutoff) {
-                    $query->where('order_date', '>=', $inactiveCutoff);
-                });
+            $customers->whereDoesntHave('orders', function ($query) use ($inactiveCutoff) {
+                $query->where('order_date', '>=', $inactiveCutoff);
+            });
         }
 
         if ($request->filled('name')) {
@@ -64,6 +63,8 @@ class CustomerController extends Controller
                     $name .= ' <span class="badge bg-warning text-dark ms-1" title="Order terakhir: '
                         . Carbon::parse($lastOrderDate)->format('d M Y') . '">Tidak order '
                         . self::INACTIVE_ORDER_MONTHS . ' bulan</span>';
+                } elseif (!$lastOrderDate) {
+                    $name .= ' <span class="badge bg-secondary ms-1">Belum pernah order</span>';
                 }
 
                 return $name;

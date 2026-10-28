@@ -162,8 +162,8 @@
                                 <div class="row g-3 p-2 justify-content-between align-items-end">
                                     <div class="col-lg-auto">
                                         <span class="fs-12 text-muted">
-                                            Customer yang pernah order, tapi tidak ada order lagi selama
-                                            {{ $inactiveOrderMonths }} bulan terakhir.
+                                            Customer yang tidak ada order selama {{ $inactiveOrderMonths }} bulan
+                                            terakhir, termasuk yang belum pernah order sama sekali.
                                         </span>
                                     </div>
                                     <div class="col-lg-2">
