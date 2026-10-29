@@ -172,6 +172,12 @@
                                             style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
                                             autocomplete="off" placeholder="Search Customer Name...">
                                     </div>
+                                    <div class="col-lg-auto">
+                                        <a href="javascript:void(0)" id="btnExportInactiveCustomer" class="btn btn-light-brand">
+                                            <i class="feather-download me-2"></i>
+                                            <span>Export Excel</span>
+                                        </a>
+                                    </div>
                                 </div>
                                 <div class="table-responsive">
                                     <table class="table bg-transparent table-hover" id="inactiveCustomerList">
@@ -509,6 +515,19 @@
                     lastInactiveKeyword = '';
                     inactiveTable.ajax.reload(null, true);
                 }
+            });
+
+            // Export ikut kata kunci pencarian yang sedang terisi.
+            $('#btnExportInactiveCustomer').on('click', function() {
+                const params = new URLSearchParams();
+                const keyword = $('#inactiveName').val().trim();
+
+                if (keyword !== '') {
+                    params.set('name', keyword);
+                }
+
+                const query = params.toString();
+                window.location.href = "{{ url('/erp/customers/export-inactive') }}" + (query ? '?' + query : '');
             });
 
             document.getElementById('inactive-customers-tab').addEventListener('shown.bs.tab', initInactiveTable);

@@ -827,6 +827,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
 
     Route::middleware(['web.auth', 'permission:customer'])->group(function () {
         Route::get('/erp/customers/data', [CustomerController::class, 'data']);
+        Route::get('/erp/customers/export-inactive', [CustomerController::class, 'exportInactive'])->name('customers.export-inactive');
         Route::get('/erp/customers', [CustomerController::class, 'index']);
         Route::get('/erp/customers/create-customer', [CustomerController::class, 'create']);
         Route::post('/erp/customers/store', [CustomerController::class, 'store']);

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\InactiveCustomerExport;
 use App\Models\Customers;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use App\Models\CustomerAddresses;
 
@@ -36,22 +38,11 @@ class CustomerController extends Controller
             ->withMax('orders', 'order_date')
             ->orderBy('name');
 
-        // Tab "Tidak Order": tidak ada order sejak batas waktu, termasuk yang belum pernah order sama sekali.
         if ($request->boolean('inactive')) {
-            $customers->whereDoesntHave('orders', function ($query) use ($inactiveCutoff) {
-                $query->where('order_date', '>=', $inactiveCutoff);
-            });
+            $this->applyInactiveFilter($customers, $inactiveCutoff);
         }
 
-        if ($request->filled('name')) {
-            $keyword = $request->name;
-            $customers->where(function ($q) use ($keyword) {
-                $q->where('name', 'like', '%' . $keyword . '%')
-                  ->orWhereHas('addresses', function ($query) use ($keyword) {
-                      $query->where('business_name', 'like', '%' . $keyword . '%');
-                  });
-            });
-        }
+        $this->applyNameFilter($customers, $request);
 
         return DataTables::of($customers)
             ->addIndexColumn()
@@ -85,6 +76,50 @@ class CustomerController extends Controller
             })
             ->rawColumns(['action', 'addresses', 'customer_deposit', 'name'])
             ->make(true);
+    }
+
+    /**
+     * Export Excel tab "Tidak Order" beserta kontak customer.
+     * Filter nama dari halaman ikut, sama seperti tabelnya.
+     */
+    public function exportInactive(Request $request)
+    {
+        $inactiveCutoff = now()->subMonths(self::INACTIVE_ORDER_MONTHS);
+        $customers = Customers::query()
+            ->withMax('orders', 'order_date')
+            ->orderBy('name')
+            ->orderBy('id');
+
+        $this->applyInactiveFilter($customers, $inactiveCutoff);
+        $this->applyNameFilter($customers, $request);
+
+        $filename = 'customer-tidak-order-'.Carbon::now()->format('Ymd-His').'.xlsx';
+
+        return (new InactiveCustomerExport($customers, $inactiveCutoff, self::INACTIVE_ORDER_MONTHS))
+            ->download($filename);
+    }
+
+    // Tab "Tidak Order": tidak ada order sejak batas waktu, termasuk yang belum pernah order sama sekali.
+    private function applyInactiveFilter(Builder $customers, Carbon $inactiveCutoff): void
+    {
+        $customers->whereDoesntHave('orders', function ($query) use ($inactiveCutoff) {
+            $query->where('order_date', '>=', $inactiveCutoff);
+        });
+    }
+
+    private function applyNameFilter(Builder $customers, Request $request): void
+    {
+        if (! $request->filled('name')) {
+            return;
+        }
+
+        $keyword = $request->name;
+        $customers->where(function ($q) use ($keyword) {
+            $q->where('name', 'like', '%' . $keyword . '%')
+              ->orWhereHas('addresses', function ($query) use ($keyword) {
+                  $query->where('business_name', 'like', '%' . $keyword . '%');
+              });
+        });
     }
 
     // public function create()
