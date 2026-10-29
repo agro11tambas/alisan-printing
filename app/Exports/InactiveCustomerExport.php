@@ -2,7 +2,6 @@
 
 namespace App\Exports;
 
-use App\Models\CustomerAddresses;
 use App\Models\Customers;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,21 +19,18 @@ class InactiveCustomerExport extends BaseExcelExport
         'Order Terakhir',
         'No. HP Customer',
         'No. WhatsApp Akun',
-        'Email Akun',
         'Nama Usaha',
         'Alamat',
-        'Sales',
-        'Deposit',
     ];
+
+    /** Kolom milik customer, di-merge sepanjang seluruh blok customer. */
+    private const CUSTOMER_COLUMNS = ['A', 'B', 'C', 'D', 'E'];
 
     /** Kolom nomor telepon, ditulis sebagai teks supaya angka 0 / 62 di depan tidak berubah. */
     private const PHONE_COLUMNS = ['E', 'F'];
 
-    /** Kolom angka rupiah (1 = A). */
-    private const CURRENCY_COLUMNS = [11];
-
     /** Kolom teks panjang yang rata kiri. */
-    private const TEXT_COLUMNS = [2, 6, 7, 8, 9, 10];
+    private const TEXT_COLUMNS = [2, 7, 8];
 
     public function __construct(private Builder $query, private Carbon $inactiveCutoff, private int $inactiveMonths)
     {
@@ -45,71 +41,81 @@ class InactiveCustomerExport extends BaseExcelExport
     {
         $sheet = $this->makeSheet('Customer Tidak Order', true);
 
-        $this->writeHeader($sheet, self::HEADERS);
+        $this->writeHeader($sheet, self::HEADERS, false);
 
         $row = 1;
+        $number = 0;
 
         $this->query
             ->with([
-                'user:id,name',
-                'accounts:customer_accounts.id,whatsapp_number,email',
-                'addresses:id,customer_id,business_name,address,is_default',
+                'accounts:customer_accounts.id,whatsapp_number',
+                'addresses' => fn ($query) => $query
+                    ->select('id', 'customer_id', 'business_name', 'address', 'is_default')
+                    ->orderByDesc('is_default')
+                    ->orderBy('id'),
             ])
-            ->chunk(self::CHUNK_SIZE, function ($customers) use ($sheet, &$row) {
+            ->chunk(self::CHUNK_SIZE, function ($customers) use ($sheet, &$row, &$number) {
                 foreach ($customers as $customer) {
-                    $row++;
-                    $this->writeCustomer($sheet, $customer, $row);
+                    $row = $this->writeCustomer($sheet, $customer, ++$number, $row);
                 }
             });
 
-        $this->finalizeSheet($sheet, count(self::HEADERS), $row, self::CURRENCY_COLUMNS, self::TEXT_COLUMNS);
+        $this->finalizeSheet($sheet, count(self::HEADERS), $row, [], self::TEXT_COLUMNS);
     }
 
-    private function writeCustomer(Worksheet $sheet, Customers $customer, int $row): void
+    /**
+     * Tulis satu customer. Tiap nomor WhatsApp dan tiap alamat mendapat
+     * barisnya sendiri; kolom customer di-merge sepanjang bloknya.
+     *
+     * @return int nomor baris terakhir yang terpakai
+     */
+    private function writeCustomer(Worksheet $sheet, Customers $customer, int $number, int $lastRow): int
     {
         $lastOrderDate = $customer->orders_max_order_date;
-        $address = $this->defaultAddress($customer);
 
-        $this->writeRow($sheet, $row, [
-            $row - 1,
-            $customer->name,
-            $lastOrderDate ? 'Tidak order '.$this->inactiveMonths.' bulan' : 'Belum pernah order',
-            $lastOrderDate ? Carbon::parse($lastOrderDate)->format('d/m/Y') : '-',
-            null,
-            null,
-            $this->joinUnique($customer->accounts->pluck('email')),
-            $address?->business_name ?: '-',
-            $address?->address ?: '-',
-            $customer->user?->name ?? '-',
-            (float) $customer->customer_deposit,
-        ]);
+        $whatsappNumbers = $customer->accounts->pluck('whatsapp_number')->filter()->unique()->values();
+        $addresses = $customer->addresses->values();
+        $rowCount = max(1, $whatsappNumbers->count(), $addresses->count());
 
-        $phones = [
-            $customer->phone ?: '-',
-            $this->joinUnique($customer->accounts->pluck('whatsapp_number')),
-        ];
+        $firstRow = $lastRow + 1;
 
-        foreach (self::PHONE_COLUMNS as $index => $column) {
-            $sheet->setCellValueExplicit($column.$row, $phones[$index], DataType::TYPE_STRING);
+        for ($index = 0; $index < $rowCount; $index++) {
+            $row = $firstRow + $index;
+            $address = $addresses->get($index);
+
+            $this->writeRow($sheet, $row, $index === 0
+                ? [
+                    $number,
+                    $customer->name,
+                    $lastOrderDate ? 'Tidak order '.$this->inactiveMonths.' bulan' : 'Belum pernah order',
+                    $lastOrderDate ? Carbon::parse($lastOrderDate)->format('d/m/Y') : '-',
+                    null,
+                    null,
+                    $address?->business_name ?: '-',
+                    $address?->address ?: '-',
+                ]
+                : [null, null, null, null, null, null, $address?->business_name, $address?->address]);
+
+            $phones = [
+                $index === 0 ? ($customer->phone ?: '-') : null,
+                $whatsappNumbers->get($index) ?? ($index === 0 ? '-' : null),
+            ];
+
+            foreach (self::PHONE_COLUMNS as $columnIndex => $column) {
+                if ($phones[$columnIndex] !== null) {
+                    $sheet->setCellValueExplicit($column.$row, $phones[$columnIndex], DataType::TYPE_STRING);
+                }
+            }
         }
-    }
 
-    /**
-     * Alamat default customer, atau alamat pertama bila tidak ada yang ditandai default.
-     */
-    private function defaultAddress(Customers $customer): ?CustomerAddresses
-    {
-        return $customer->addresses->firstWhere('is_default', true)
-            ?? $customer->addresses->first();
-    }
+        $lastRow = $firstRow + $rowCount - 1;
 
-    /**
-     * Gabung beberapa nilai akun (satu customer bisa punya lebih dari satu akun).
-     */
-    private function joinUnique($values): string
-    {
-        $joined = $values->filter()->unique()->implode(', ');
+        if ($lastRow > $firstRow) {
+            foreach (self::CUSTOMER_COLUMNS as $column) {
+                $sheet->mergeCells($column.$firstRow.':'.$column.$lastRow);
+            }
+        }
 
-        return $joined !== '' ? $joined : '-';
+        return $lastRow;
     }
 }
