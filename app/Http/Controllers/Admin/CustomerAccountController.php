@@ -247,6 +247,7 @@ class CustomerAccountController extends Controller
             CustomerLoginLink::create([
                 'customer_account_id' => $customerAccount->id,
                 'code_hash' => CustomerLoginLink::hashCode($code),
+                'code_encrypted' => $code,
                 'single_use' => $singleUse,
                 'expires_at' => $expiresAt,
                 'created_by' => Auth::id(),
@@ -262,8 +263,7 @@ class CustomerAccountController extends Controller
             ], 422);
         }
 
-        $websiteUrl = rtrim(config('app.frontend_website_url'), '/');
-        $loginUrl = $websiteUrl.'/m/'.$code;
+        $loginUrl = CustomerLoginLink::urlForCode($code);
 
         $message = $expiresAt
             ? 'Link login berhasil dibuat dan berlaku selama '.$expiresInHours.' jam.'

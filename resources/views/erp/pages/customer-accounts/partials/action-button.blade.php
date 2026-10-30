@@ -10,7 +10,19 @@
         @php
             // Link yang masih bisa dipakai harus dicabut dulu sebelum membuat yang baru.
             $hasUsableLoginLink = $account->hasUsableLoginLink();
+            $copyableLoginUrl = $hasUsableLoginLink ? $account->latestLoginLink->loginUrl() : null;
         @endphp
+
+        <li>
+            <button type="button" class="dropdown-item btn-copy-login-link"
+                data-login-url="{{ $copyableLoginUrl }}"
+                @unless ($copyableLoginUrl) disabled
+                    title="{{ $hasUsableLoginLink ? 'Link ini dibuat sebelum bisa disalin ulang. Cabut lalu buat link baru.' : 'Tidak ada link login aktif' }}"
+                @endunless>
+                <i class="feather feather-copy me-3"></i>
+                <span>Salin Link Login</span>
+            </button>
+        </li>
 
         <li>
             <button type="button" class="dropdown-item btn-login-link" data-bs-toggle="modal"

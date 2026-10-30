@@ -68,6 +68,7 @@ class CustomerLoginLinkWithoutAccountTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('customer_account_id');
             $table->string('code_hash', 64)->unique();
+            $table->text('code_encrypted')->nullable();
             $table->boolean('single_use')->default(true);
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('used_at')->nullable();
@@ -115,6 +116,9 @@ class CustomerLoginLinkWithoutAccountTest extends TestCase
                 ->where('code_hash', CustomerLoginLink::hashCode($code))
                 ->exists()
         );
+
+        // Link yang sama harus bisa disalin ulang admin setelah modal ditutup.
+        $this->assertSame($loginUrl, $account->latestLoginLink->loginUrl());
     }
 
     public function test_existing_account_with_same_phone_is_linked_instead_of_duplicated(): void

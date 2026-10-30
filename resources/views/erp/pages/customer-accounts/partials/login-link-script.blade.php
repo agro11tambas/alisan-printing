@@ -8,6 +8,39 @@
             }
         }
 
+        // Salin ulang link aktif dari daftar akun / detail customer. Delegasi ke
+        // document karena tombol di tabel dirender ulang tiap DataTable reload.
+        document.addEventListener('click', async function(event) {
+            const button = event.target.closest('.btn-copy-login-link');
+
+            if (!button || button.disabled) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const loginUrl = button.getAttribute('data-login-url');
+
+            try {
+                await navigator.clipboard.writeText(loginUrl);
+            } catch (error) {
+                const temp = document.createElement('textarea');
+                temp.value = loginUrl;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                temp.remove();
+            }
+
+            const label = button.querySelector('span');
+            const original = label.textContent;
+            label.textContent = 'Link tersalin';
+            window.setTimeout(function() {
+                label.textContent = original;
+            }, 1500);
+        });
+
         const loginLinkModal = document.getElementById('modalCustomerLoginLink');
         const loginLinkForm = document.getElementById('formCustomerLoginLink');
 

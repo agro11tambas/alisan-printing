@@ -20,6 +20,7 @@ class CustomerLoginLink extends Model
     protected $fillable = [
         'customer_account_id',
         'code_hash',
+        'code_encrypted',
         'single_use',
         'expires_at',
         'used_at',
@@ -30,9 +31,15 @@ class CustomerLoginLink extends Model
         'created_by',
     ];
 
+    protected $hidden = [
+        'code_hash',
+        'code_encrypted',
+    ];
+
     protected function casts(): array
     {
         return [
+            'code_encrypted' => 'encrypted',
             'single_use' => 'boolean',
             'expires_at' => 'datetime',
             'used_at' => 'datetime',
@@ -106,6 +113,20 @@ class CustomerLoginLink extends Model
     public static function hashCode(string $code): string
     {
         return hash('sha256', $code);
+    }
+
+    public static function urlForCode(string $code): string
+    {
+        return rtrim(config('app.frontend_website_url'), '/').'/m/'.$code;
+    }
+
+    /**
+     * URL untuk disalin ulang admin. Null untuk link yang dibuat sebelum kode
+     * ikut disimpan — link itu harus dicabut lalu dibuat baru.
+     */
+    public function loginUrl(): ?string
+    {
+        return $this->code_encrypted ? self::urlForCode($this->code_encrypted) : null;
     }
 
     public function customerAccount()

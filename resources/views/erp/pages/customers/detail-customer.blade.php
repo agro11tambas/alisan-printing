@@ -101,6 +101,17 @@
                                                 <i class="feather-link me-1"></i>
                                                 Buat Link Login
                                             </button>
+                                            @php
+                                                $copyableLoginUrl = $account->hasUsableLoginLink() ? $account->latestLoginLink->loginUrl() : null;
+                                            @endphp
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-copy-login-link"
+                                                data-login-url="{{ $copyableLoginUrl }}"
+                                                @unless ($copyableLoginUrl) disabled
+                                                    title="{{ $account->hasUsableLoginLink() ? 'Link ini dibuat sebelum bisa disalin ulang. Cabut lalu buat link baru.' : 'Tidak ada link login aktif' }}"
+                                                @endunless>
+                                                <i class="feather-copy me-1"></i>
+                                                <span>Salin Link</span>
+                                            </button>
                                             <button type="button" class="btn btn-sm btn-outline-danger"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalRevokeCustomerLoginLink"
