@@ -837,6 +837,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::put('/erp/customers/delete/{id}', [CustomerController::class, 'delete']);
 
         Route::post('/erp/customers/{customer}/deposit', [CustomerController::class, 'updateDeposit']);
+        Route::post('/erp/customers/{id}/login-link', [CustomerAccountController::class, 'generateLoginLinkForCustomer']);
 
 
         Route::get('/erp/customer-accounts', [CustomerAccountController::class, 'index']);
@@ -844,7 +845,6 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::get('/erp/customer-accounts/create', [CustomerAccountController::class, 'create']);
         Route::post('/erp/customer-accounts/store', [CustomerAccountController::class, 'store']);
         Route::get('/erp/customer-accounts/edit/{id}', [CustomerAccountController::class, 'edit']);
-        Route::post('/erp/customer-accounts/{id}/password-reset-link', [CustomerAccountController::class, 'generatePasswordResetLink']);
         Route::post('/erp/customer-accounts/{id}/login-link', [CustomerAccountController::class, 'generateLoginLink']);
         Route::post('/erp/customer-accounts/{id}/login-link/revoke', [CustomerAccountController::class, 'revokeLoginLink']);
         Route::put('/erp/customer-accounts/update/{id}', [CustomerAccountController::class, 'update']);

@@ -141,7 +141,7 @@ class CustomerController extends Controller
 
     public function detail($id)
     {
-        $customer = Customers::with(['addresses', 'accounts'])->findOrFail($id);
+        $customer = Customers::with(['addresses', 'accounts.latestLoginLink'])->findOrFail($id);
 
         return view('erp.pages.customers.detail-customer', compact('customer'));
     }

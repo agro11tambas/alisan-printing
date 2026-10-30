@@ -89,15 +89,26 @@
                                             <span class="badge bg-soft-success text-success">
                                                 Account {{ $loop->iteration }}
                                             </span>
+                                            {{-- Link yang masih bisa dipakai harus dicabut dulu sebelum membuat yang baru. --}}
                                             <button type="button" class="btn btn-sm btn-primary"
                                                 data-bs-toggle="modal"
-                                                data-bs-target="#modalResetCustomerPassword"
+                                                data-bs-target="#modalCustomerLoginLink"
                                                 data-name="{{ $account->name }}"
                                                 data-phone="{{ $account->whatsapp_number }}"
-                                                data-url="{{ url('/erp/customer-accounts/' . $account->id . '/password-reset-link') }}"
-                                                @disabled(! $account->is_active)>
-                                                <i class="feather-key me-1"></i>
-                                                Buat Baru/Reset Password
+                                                data-url="{{ url('/erp/customer-accounts/' . $account->id . '/login-link') }}"
+                                                @disabled(! $account->is_active || $account->hasUsableLoginLink())
+                                                @if ($account->hasUsableLoginLink()) title="Cabut link login aktif dulu sebelum membuat yang baru" @endif>
+                                                <i class="feather-link me-1"></i>
+                                                Buat Link Login
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalRevokeCustomerLoginLink"
+                                                data-name="{{ $account->name }}"
+                                                data-url="{{ url('/erp/customer-accounts/' . $account->id . '/login-link/revoke') }}"
+                                                @disabled(! $account->hasUnrevokedLoginLink())>
+                                                <i class="feather-slash me-1"></i>
+                                                Cabut Link Login
                                             </button>
                                         </div>
                                     </div>
@@ -106,6 +117,18 @@
                                 <div class="border rounded-3 p-2 text-center bg-light">
                                     <i class="feather-user-x fs-4 text-muted"></i>
                                     <div class="mt-1 text-muted">Belum ada customer account</div>
+                                    {{-- Akun dibuat otomatis dari nama & nomor HP customer saat link dibuat. --}}
+                                    <button type="button" class="btn btn-sm btn-primary mt-2"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalCustomerLoginLink"
+                                        data-name="{{ $customer->name }}"
+                                        data-phone="{{ $customer->phone }}"
+                                        data-url="{{ url('/erp/customers/' . $customer->id . '/login-link') }}"
+                                        @disabled(empty($customer->phone))
+                                        @if (empty($customer->phone)) title="Lengkapi nomor HP customer dulu" @endif>
+                                        <i class="feather-link me-1"></i>
+                                        Buat Akun & Link Login
+                                    </button>
                                 </div>
                             @endforelse
                         </div>
@@ -147,9 +170,28 @@
 @endsection
 
 @push('modals')
-    @include('erp.pages.customer-accounts.partials.password-reset-modal')
+    @include('erp.pages.customer-accounts.partials.login-link-modal')
 @endpush
 
 @push('scripts')
-    @include('erp.pages.customer-accounts.partials.password-reset-script')
+    @include('erp.pages.customer-accounts.partials.login-link-script')
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Status tombol Buat/Cabut dirender server, jadi muat ulang halaman
+            // setelah modal ditutup kalau link berhasil dibuat atau dicabut.
+            const reloadIfShown = function(modalId, resultId) {
+                const modal = document.getElementById(modalId);
+
+                modal?.addEventListener('hidden.bs.modal', function() {
+                    if (!document.getElementById(resultId).classList.contains('d-none')) {
+                        window.location.reload();
+                    }
+                });
+            };
+
+            reloadIfShown('modalCustomerLoginLink', 'loginLinkResult');
+            reloadIfShown('modalRevokeCustomerLoginLink', 'revokeLoginLinkMessage');
+        });
+    </script>
 @endpush

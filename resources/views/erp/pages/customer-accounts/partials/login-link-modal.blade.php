@@ -54,7 +54,12 @@
                     </div>
 
                     <div id="loginLinkResult" class="d-none">
-                        <label for="loginLinkUrl" class="form-label fw-semibold">Link Login</label>
+                        <a href="#" class="btn btn-success w-100" id="sendLoginLinkWhatsapp"
+                            target="_blank" rel="noopener noreferrer">
+                            <i class="feather feather-message-circle me-1"></i>
+                            Kirim ke WhatsApp Customer
+                        </a>
+                        <label for="loginLinkUrl" class="form-label fw-semibold mt-3">Link Login</label>
                         <div class="input-group">
                             <input type="text" id="loginLinkUrl" class="form-control" readonly>
                             <button type="button" class="btn btn-outline-primary" id="copyLoginLinkUrl">
@@ -62,14 +67,9 @@
                             </button>
                         </div>
                         <div class="alert alert-warning mt-3 mb-0">
-                            Salin sekarang. Link ini tidak bisa ditampilkan lagi setelah jendela ditutup —
+                            Kirim sekarang. Link ini tidak bisa ditampilkan lagi setelah jendela ditutup —
                             kalau hilang, cabut link ini lewat "Cabut Link Login" lalu buat link baru.
                         </div>
-                        <a href="#" class="btn btn-success mt-3" id="sendLoginLinkWhatsapp"
-                            target="_blank" rel="noopener noreferrer">
-                            <i class="feather feather-message-circle me-1"></i>
-                            Kirim via WhatsApp
-                        </a>
                         <p class="text-success mt-3 mb-0" id="loginLinkMessage"></p>
                     </div>
 

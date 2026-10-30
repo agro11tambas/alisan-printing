@@ -70,7 +70,6 @@
 @endpush
 
 @push('modals')
-    @include('erp.pages.customer-accounts.partials.password-reset-modal')
     @include('erp.pages.customer-accounts.partials.login-link-modal')
 
     <div class="modal fade" id="modalDeleteCustomerAccount" tabindex="-1" aria-labelledby="deleteCustomerAccountModalLabel"
@@ -100,7 +99,6 @@
 @endpush
 
 @push('scripts')
-    @include('erp.pages.customer-accounts.partials.password-reset-script')
     @include('erp.pages.customer-accounts.partials.login-link-script')
 
     <script>

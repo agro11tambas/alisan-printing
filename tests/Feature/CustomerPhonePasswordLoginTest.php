@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Admin\CustomerAccountController;
 use App\Models\CustomerAccount;
 use App\Models\CustomerPasswordResetToken;
 use App\Models\Customers;
@@ -182,45 +181,6 @@ class CustomerPhonePasswordLoginTest extends TestCase
 
         $this->getJson('/api/v1/ecommerce/auth/google/redirect')->assertNotFound();
         $this->getJson('/api/v1/ecommerce/auth/google/callback')->assertNotFound();
-    }
-
-    public function test_erp_generates_a_hashed_password_reset_link_valid_for_twenty_four_hours(): void
-    {
-        config(['app.frontend_website_url' => 'https://shop.example.test']);
-
-        $account = CustomerAccount::create([
-            'name' => 'Customer Reset',
-            'email' => 'reset@example.com',
-            'whatsapp_number' => '081298765432',
-            'password' => Hash::make('password123'),
-            'auth_provider' => 'phone',
-            'is_active' => true,
-        ]);
-        $this->assertSame('not_created', $account->password_reset_status);
-
-        $response = app(CustomerAccountController::class)
-            ->generatePasswordResetLink($account->id);
-        $payload = $response->getData(true);
-
-        parse_str(parse_url($payload['data']['reset_url'], PHP_URL_QUERY), $query);
-        $storedToken = CustomerPasswordResetToken::where('customer_account_id', $account->id)->firstOrFail();
-
-        $this->assertTrue($payload['success']);
-        $this->assertSame('pending', $account->fresh()->password_reset_status);
-        $this->assertStringStartsWith(
-            'https://shop.example.test/reset-password?token=',
-            $payload['data']['reset_url']
-        );
-        $this->assertSame(hash('sha256', $query['token']), $storedToken->token_hash);
-        $this->assertNotSame($query['token'], $storedToken->token_hash);
-        $this->assertTrue($storedToken->expires_at->between(now()->addHours(24)->subMinute(), now()->addHours(24)->addMinute()));
-
-        $storedToken->update(['expires_at' => now()->subSecond()]);
-        $this->assertSame('expired', $account->fresh()->password_reset_status);
-
-        $this->getJson('/api/v1/ecommerce/auth/password-reset/validate?token='.$query['token'])
-            ->assertUnprocessable()
-            ->assertJsonPath('success', false);
     }
 
     public function test_customer_can_reset_password_once_and_existing_sessions_are_revoked(): void

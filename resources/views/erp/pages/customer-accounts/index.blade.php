@@ -111,7 +111,7 @@
                                         <th>Name</th>
                                         <th>WhatsApp Number</th>
                                         <th>Status</th>
-                                        <th>Status Buat Baru/Reset Password</th>
+                                        <th>Status Link Login</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -126,7 +126,6 @@
 @endsection
 
 @push('modals')
-    @include('erp.pages.customer-accounts.partials.password-reset-modal')
     @include('erp.pages.customer-accounts.partials.login-link-modal')
 
     <div class="modal fade" id="modalDeleteCustomerAccount" tabindex="-1" aria-labelledby="deleteModalLabel"
@@ -160,7 +159,6 @@
 @endpush
 
 @push('scripts')
-    @include('erp.pages.customer-accounts.partials.password-reset-script')
     @include('erp.pages.customer-accounts.partials.login-link-script')
 
     <script>
@@ -214,8 +212,8 @@
                         name: 'is_active',
                     },
                     {
-                        data: 'password_reset_status',
-                        name: 'password_reset_status',
+                        data: 'login_link_status',
+                        name: 'login_link_status',
                         orderable: false,
                         searchable: false,
                     },

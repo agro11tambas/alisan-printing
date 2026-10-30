@@ -86,16 +86,10 @@
                     loginLinkUrl.value = payload.data.login_url;
                     loginLinkMessage.textContent = payload.message;
 
-                    const masaBerlaku = expiresInHours ?
-                        'Link berlaku selama ' + expiresInHours + ' jam.' :
-                        'Link berlaku sampai dicabut.';
                     const whatsappMessage = [
-                        'Halo ' + loginLinkCustomerName + ',',
+                        'Link Order VIP',
                         '',
-                        'Silakan masuk ke akun Anda melalui link berikut:',
                         payload.data.login_url,
-                        '',
-                        masaBerlaku + ' Link ini hanya untuk Anda, mohon jangan diteruskan.',
                     ].join('\n');
 
                     if (loginLinkCustomerPhone) {

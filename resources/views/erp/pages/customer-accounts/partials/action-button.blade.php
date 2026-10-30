@@ -7,16 +7,6 @@
             </a>
         </li>
 
-        <li>
-            <button type="button" class="dropdown-item btn-reset-password" data-bs-toggle="modal"
-                data-bs-target="#modalResetCustomerPassword" data-name="{{ $account->name }}"
-                data-phone="{{ $account->whatsapp_number }}"
-                data-url="{{ url('/erp/customer-accounts/' . $account->id . '/password-reset-link') }}">
-                <i class="feather feather-key me-3"></i>
-                <span>Buat Baru/Reset Password</span>
-            </button>
-        </li>
-
         @php
             // Link yang masih bisa dipakai harus dicabut dulu sebelum membuat yang baru.
             $hasUsableLoginLink = $account->hasUsableLoginLink();

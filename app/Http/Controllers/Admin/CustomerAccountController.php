@@ -5,11 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CustomerAccount;
 use App\Models\CustomerLoginLink;
-use App\Models\CustomerPasswordResetToken;
+use App\Models\Customers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use App\Support\PhoneNumber;
 use Yajra\DataTables\Facades\DataTables;
@@ -149,46 +148,56 @@ class CustomerAccountController extends Controller
         return view('erp.pages.customer-accounts.edit-customer-account', compact('customerAccount'));
     }
 
-    public function generatePasswordResetLink($id)
+    public function generateLoginLink(Request $request, $id)
     {
-        $customerAccount = CustomerAccount::findOrFail($id);
+        return $this->issueLoginLink($request, CustomerAccount::findOrFail($id));
+    }
 
-        if (! $customerAccount->is_active) {
+    /**
+     * Link login untuk customer yang belum punya akun. Akunnya dibuat dari nama
+     * dan nomor HP customer (sama seperti CustomerController::store()), jadi
+     * customer langsung masuk lewat link tanpa perlu register di website.
+     */
+    public function generateLoginLinkForCustomer(Request $request, $id)
+    {
+        $customer = Customers::with('accounts')->findOrFail($id);
+
+        if ($customer->accounts->isNotEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Link reset password hanya dapat dibuat untuk akun yang aktif.',
+                'message' => 'Customer ini sudah punya akun. Buat link login dari akun tersebut.',
             ], 422);
         }
 
-        $plainToken = Str::random(64);
-        $expiresAt = now()->addHours(24);
+        $phone = PhoneNumber::normalizeIndonesian($customer->phone);
 
-        CustomerPasswordResetToken::updateOrCreate(
-            ['customer_account_id' => $customerAccount->id],
-            [
-                'token_hash' => hash('sha256', $plainToken),
-                'expires_at' => $expiresAt,
-                'used_at' => null,
-            ]
-        );
+        if (! $phone) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Customer belum punya nomor WhatsApp. Lengkapi nomornya dulu sebelum membuat link login.',
+            ], 422);
+        }
 
-        $websiteUrl = rtrim(config('app.frontend_website_url'), '/');
-        $resetUrl = $websiteUrl.'/reset-password?'.http_build_query(['token' => $plainToken]);
+        $customerAccount = DB::transaction(function () use ($customer, $phone) {
+            // Nomor yang sudah dipakai akun lain ditautkan, bukan dibuat ulang.
+            $account = CustomerAccount::findByEquivalentWhatsapp($phone) ?? CustomerAccount::create([
+                'name' => $customer->name,
+                'whatsapp_number' => $phone,
+                'password' => bcrypt($phone),
+                'auth_provider' => 'phone',
+                'is_active' => true,
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Link reset password berhasil dibuat dan berlaku selama 24 jam.',
-            'data' => [
-                'reset_url' => $resetUrl,
-                'expires_at' => $expiresAt->toIso8601String(),
-            ],
-        ]);
+            $customer->accounts()->syncWithoutDetaching([$account->id]);
+
+            return $account;
+        });
+
+        return $this->issueLoginLink($request, $customerAccount);
     }
 
-    public function generateLoginLink(Request $request, $id)
+    private function issueLoginLink(Request $request, CustomerAccount $customerAccount)
     {
-        $customerAccount = CustomerAccount::findOrFail($id);
-
         if (! $customerAccount->is_active) {
             return response()->json([
                 'success' => false,

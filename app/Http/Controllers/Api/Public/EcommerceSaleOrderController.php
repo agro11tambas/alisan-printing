@@ -55,7 +55,9 @@ class EcommerceSaleOrderController extends Controller
         'customerAccount',
         'customerAddress',
         'orderItems.product',
+        'orderItems.product.unitConversions',
         'orderItems.productBundle.items',
+        'orderItems.productBundle.unitConversions',
         'orderProgress.items.assigns',
         'deliveryOrders.items',
         'deliveryOrders.shipments',
@@ -65,6 +67,10 @@ class EcommerceSaleOrderController extends Controller
     private array $variantImages = [];
     private array $combinationImages = [];
     private array $imageUrlMemo = [];
+
+    /** Memo linkage katalog per request, dipakai itemCatalogLink(). */
+    private array $combinationLinks = [];
+    private array $optionLinks = [];
 
     public function __construct(private EcommercePricingService $pricingService)
     {
@@ -84,7 +90,12 @@ class EcommerceSaleOrderController extends Controller
                 }
             })
             ->whereIn('status', self::CUSTOMER_VISIBLE_STATUSES)
+            // Dua pesanan bisa punya `order_date` yang sama persis. Tanpa kunci
+            // kedua, urutannya terserah MySQL, dan halaman berikutnya bisa
+            // mengulang atau melewatkan pesanan — juga membuat "pesanan paling
+            // baru" di section "Beli Lagi" berpindah-pindah antar request.
             ->latest('order_date')
+            ->latest('id')
             ->paginate((int) $request->input('per_page', 10));
 
         $orders->getCollection()->transform(fn (Order $order) => $this->orderPayload($order));
@@ -985,6 +996,174 @@ class EcommerceSaleOrderController extends Controller
         return $this->imageUrlMemo[$path] = asset('storage/' . $path);
     }
 
+    /**
+     * Baris pesanan ERP dipetakan balik ke katalog website: produk ecommerce
+     * mana, varian mana, dan untuk baris bundle kombinasi varian + tutup mana.
+     *
+     * Tanpa ini website hanya punya `product_id` dan `product_name` versi ERP,
+     * dan itu tidak cukup untuk tahu barang apa yang dulu dipesan:
+     *
+     * - Baris bundle (varian + tutup, yaitu hampir semua pesanan dari website)
+     *   menyimpan `product_bundle_id`, sementara `product_id`-nya NULL dan
+     *   `product_name`-nya nama ProductBundle ERP yang diketik admin — bukan
+     *   nama atau alias apa pun yang dikenal katalog.
+     * - Satu produk ERP boleh dipakai beberapa produk ecommerce, jadi menebak
+     *   dari `product_id` saja bisa jatuh ke produk yang salah.
+     *
+     * Null berarti barisnya memang tidak ada di katalog: produk ERP yang tidak
+     * dijual di website, atau varian/kombinasi yang sudah dinonaktifkan.
+     */
+    private function itemCatalogLink(OrderItem $item): ?array
+    {
+        $link = null;
+
+        if ($item->product_bundle_id) {
+            $productIds = $item->productBundle?->items
+                ->pluck('product_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all() ?? [];
+
+            // Pasangannya dicocokkan tanpa melihat `role`: bundle lama bisa
+            // belum punya role, dan kombinasi katalog sudah menentukan sendiri
+            // mana varian produk dan mana tutupnya.
+            if (count($productIds) === 2) {
+                $link = $this->combinationLink($productIds);
+            }
+        } elseif ($item->product_id) {
+            $link = $this->optionLink((int) $item->product_id);
+        }
+
+        if (!$link) {
+            return null;
+        }
+
+        // Satuan pemesanan tidak ikut dikirim: angka `quantity` di bawah sudah
+        // dinyatakan dalam satuan itu, dan namanya ada di `unit_name`.
+        $unitId = $link['ecommerce_unit_id'];
+        unset($link['ecommerce_unit_id']);
+
+        $link['quantity'] = $this->orderableQuantity($item, $unitId);
+
+        return $link;
+    }
+
+    /**
+     * Qty baris pesanan, dinyatakan dalam satuan yang dipakai website saat
+     * memesan produk itu.
+     *
+     * Pesanan yang dibuat admin langsung di ERP boleh memakai satuan lain — 22
+     * Dus, misalnya — sementara keranjang website selalu memesan dalam satuan
+     * produk ecommerce-nya. Jadi kolom `quantity` mentah tidak boleh dipakai
+     * apa adanya: 22 Dus yang dimasukkan sebagai 22 Pcs salah seribu kali.
+     * `qty_base` selalu dalam satuan dasar produk, jadi dihitung dari situ.
+     *
+     * Null kalau produknya tidak punya konversi ke satuan itu. Qty-nya memang
+     * tidak bisa dihitung, dan website jatuh ke minimum order produknya.
+     */
+    private function orderableQuantity(OrderItem $item, int $unitId): ?int
+    {
+        $conversions = $item->product_bundle_id
+            ? $item->productBundle?->unitConversions
+            : $item->product?->unitConversions;
+
+        $conversionValue = (float) ($conversions?->firstWhere('unit_id', $unitId)?->conversion_value ?? 0);
+
+        if ($conversionValue <= 0) {
+            return null;
+        }
+
+        // Dibulatkan ke atas: "Beli Lagi" tidak boleh menawarkan lebih sedikit
+        // daripada yang terakhir dipesan.
+        return (int) ceil(((float) $item->qty_base) / $conversionValue);
+    }
+
+    /**
+     * Kombinasi katalog untuk sepasang produk ERP. Kalau pasangan yang sama
+     * dipakai lebih dari satu produk ecommerce, yang id-nya terkecil dipakai
+     * supaya hasilnya tetap sama di setiap request.
+     */
+    private function combinationLink(array $productIds): ?array
+    {
+        $key = $this->pairKey($productIds);
+
+        if (array_key_exists($key, $this->combinationLinks)) {
+            return $this->combinationLinks[$key];
+        }
+
+        $combination = EcommerceVariantCombination::with(['productOption', 'lidOption', 'ecommerceProduct.unit'])
+            ->where('is_active', true)
+            ->whereHas('productOption', fn ($query) => $query->whereIn('product_id', $productIds)->where('is_active', true))
+            ->whereHas('lidOption', fn ($query) => $query->whereIn('product_id', $productIds)->where('is_active', true))
+            ->whereHas('ecommerceProduct', fn ($query) => $query->where('is_active', true))
+            ->orderBy('id')
+            ->get()
+            // Dua whereHas di atas hanya memastikan kedua sisi ada di daftar,
+            // jadi pasangan silang seperti (A, A) masih ikut dan harus disaring.
+            ->first(fn (EcommerceVariantCombination $candidate) => $this->pairKey([
+                (int) $candidate->productOption?->product_id,
+                (int) $candidate->lidOption?->product_id,
+            ]) === $key);
+
+        if (!$combination || !$combination->ecommerceProduct) {
+            return $this->combinationLinks[$key] = null;
+        }
+
+        return $this->combinationLinks[$key] = [
+            'ecommerce_product_id' => (int) $combination->ecommerce_product_id,
+            'product_slug' => $combination->ecommerceProduct->slug,
+            'variant_combination_id' => (int) $combination->id,
+            'variant_option_id' => (int) $combination->product_option_id,
+            'lid_option_id' => (int) $combination->lid_option_id,
+            'unit_name' => $combination->ecommerceProduct->unit?->name ?? 'Pcs',
+            'ecommerce_unit_id' => (int) $combination->ecommerceProduct->unit_id,
+        ];
+    }
+
+    /**
+     * Varian katalog untuk satu produk ERP, dipakai baris non-bundle: varian
+     * yang boleh tanpa tutup, dan pesanan yang dibuat admin langsung di ERP.
+     */
+    private function optionLink(int $productId): ?array
+    {
+        if (array_key_exists($productId, $this->optionLinks)) {
+            return $this->optionLinks[$productId];
+        }
+
+        $options = EcommerceVariantOption::with(['group.ecommerceProduct.variantGroups', 'group.ecommerceProduct.unit'])
+            ->where('product_id', $productId)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (EcommerceVariantOption $option) => (bool) $option->group?->ecommerceProduct?->is_active);
+
+        // Grup pertama berisi varian produknya, grup setelahnya tutup. Tutup
+        // tidak bisa dipesan sendiri dari website, jadi varian produk dipakai
+        // lebih dulu dan opsi tutup hanya cadangan supaya barisnya tetap
+        // tertaut ke produk yang benar.
+        $option = $options->first(fn (EcommerceVariantOption $candidate) => (int) $candidate->variant_group_id
+                === (int) $candidate->group?->ecommerceProduct?->variantGroups->first()?->id)
+            ?? $options->first();
+
+        if (!$option) {
+            return $this->optionLinks[$productId] = null;
+        }
+
+        $ecommerceProduct = $option->group->ecommerceProduct;
+
+        return $this->optionLinks[$productId] = [
+            'ecommerce_product_id' => (int) $ecommerceProduct->id,
+            'product_slug' => $ecommerceProduct->slug,
+            'variant_combination_id' => null,
+            'variant_option_id' => (int) $option->id,
+            'lid_option_id' => null,
+            'unit_name' => $ecommerceProduct->unit?->name ?? 'Pcs',
+            'ecommerce_unit_id' => (int) $ecommerceProduct->unit_id,
+        ];
+    }
+
     private function orderPayload(Order $order): array
     {
         return [
@@ -1022,6 +1201,7 @@ class EcommerceSaleOrderController extends Controller
                 'product_id' => $item->product_id,
                 'product_name' => $item->product_name,
                 'image_url' => $this->itemImageUrl($item),
+                'catalog' => $this->itemCatalogLink($item),
                 'unit_name' => $item->unit_name,
                 'quantity' => (int) $item->quantity,
                 'mode' => $item->mode,
