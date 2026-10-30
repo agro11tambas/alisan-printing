@@ -2381,22 +2381,19 @@ class SaleListController extends Controller
 
                 // fallback ambil dari database kalau form/JS tidak kirim unit
                 if ($unitConversionId) {
-                    if ($type === 'satuan') {
-                        $unit = \App\Models\ProductUnitConversion::find($unitConversionId);
+                    // Unit harus milik produk/bundle yang dipilih. Setelah ganti tipe
+                    // (bundle ↔ satuan) form bisa masih membawa unit tipe lama → FK error.
+                    $unit = $type === 'satuan'
+                        ? \App\Models\ProductUnitConversion::where('product_id', $productId)->find($unitConversionId)
+                        : \App\Models\ProductBundleUnitConversion::where('product_bundle_id', $productId)->find($unitConversionId);
 
-                        if ($unit) {
-                            $unitConversionValue = (float) ($unitConversionValue ?: $unit->conversion_value);
-                            $unitName = $unitName ?: ($unit->unit_name ?? $unit->unit?->name ?? 'Pcs');
-                        }
-                    }
-
-                    if ($type === 'bundle') {
-                        $unit = \App\Models\ProductBundleUnitConversion::find($unitConversionId);
-
-                        if ($unit) {
-                            $unitConversionValue = (float) ($unitConversionValue ?: $unit->conversion_value);
-                            $unitName = $unitName ?: ($unit->unit_name ?? $unit->unit?->name ?? 'Pcs');
-                        }
+                    if ($unit) {
+                        $unitConversionValue = (float) ($unitConversionValue ?: $unit->conversion_value);
+                        $unitName = $unitName ?: ($unit->unit_name ?? $unit->unit?->name ?? 'Pcs');
+                    } else {
+                        $unitConversionId = null;
+                        $unitConversionValue = 1;
+                        $unitName = null;
                     }
                 }
 
@@ -2510,6 +2507,9 @@ class SaleListController extends Controller
                 if ($orderItem) {
                     $submittedItemIds[] = (int) $orderItem->id;
                     $oldMode = $orderItem->mode;
+                    // Tipe lama (satuan/bundle) — bisa beda dari tipe baru kalau user ganti bundle ↔ satuan
+                    $oldType = $orderItem->satuan;
+                    $isTypeChanged = $oldType !== $type;
                     // $diffQty   = $qty - $orderItem->quantity;
 
                     $oldProductIdForComponent = $orderItem->product_id;
@@ -2526,7 +2526,7 @@ class SaleListController extends Controller
                     $oldBundleIdForComponent = $orderItem->product_bundle_id;
 
                     // 🔥 CEK jika produk berubah di mode polosan
-                    if ($itemMode === 'polosan' && $type === 'satuan') {
+                    if ($itemMode === 'polosan' && $type === 'satuan' && ! $isTypeChanged) {
                         $oldProductId = $orderItem->product_id;
                         if ($oldProductId != $productId) {
                             // Kembalikan stok produk lama
@@ -2725,8 +2725,23 @@ class SaleListController extends Controller
                         }
                     }
 
+                    // Nama produk ikut berubah kalau tipe / produknya diganti
+                    $isSameProduct = $type === 'satuan'
+                        ? $oldProductIdForComponent == $productId
+                        : $oldBundleIdForComponent == $productId;
+
+                    $productName = $orderItem->product_name;
+
+                    if ($isTypeChanged || ! $isSameProduct) {
+                        $productName = $type === 'satuan'
+                            ? Products::findOrFail($productId)->name
+                            : ProductBundle::findOrFail($productId)->name;
+                    }
+
                     // UPDATE ITEM DASAR (termasuk product_id / bundle_id)
                     $orderItem->update([
+                        'satuan' => $type,
+                        'product_name' => $productName,
                         'product_id' => $type === 'satuan' ? $productId : null,
                         'product_bundle_id' => $type === 'bundle' ? $productId : null,
 
@@ -2772,7 +2787,52 @@ class SaleListController extends Controller
                         $isProductChanged = ($oldBundleIdForComponent != $productId);
                     }
 
-                    if ($isProductChanged) {
+                    if ($isTypeChanged) {
+                        // Ganti tipe (bundle ↔ satuan): komponen lama tidak bisa dipetakan,
+                        // jadi hapus semua lalu buat ulang sesuai tipe baru.
+                        $orderItem->components()->delete();
+
+                        if ($type === 'satuan') {
+                            $newProduct = Products::findOrFail($productId);
+
+                            $orderItem->components()->create([
+                                'product_id' => $newProduct->id,
+                                'qty' => $qtyBase,
+                                'avg_cost_at_sale' => $newProduct->avg_cost ?? 0,
+                                'fixed_cost_at_sale' => $newProduct->fixed_cost ?? 0,
+                                'total_cost' => ($newProduct->avg_cost ?? 0) * $qtyBase,
+                                'total_fixed_cost' => ($newProduct->fixed_cost ?? 0) * $qtyBase,
+                            ]);
+                        } else {
+                            $bundle = ProductBundle::with('items.product')->findOrFail($productId);
+
+                            foreach ($bundle->items as $bundleItem) {
+                                $product = $bundleItem->product;
+
+                                if (! $product) {
+                                    continue;
+                                }
+
+                                $componentQty = $qtyBase * ($bundleItem->quantity ?? 1);
+
+                                $orderItem->components()->create([
+                                    'product_id' => $product->id,
+                                    'qty' => $componentQty,
+                                    'avg_cost_at_sale' => $product->avg_cost ?? 0,
+                                    'fixed_cost_at_sale' => $product->fixed_cost ?? 0,
+                                    'total_cost' => ($product->avg_cost ?? 0) * $componentQty,
+                                    'total_fixed_cost' => ($product->fixed_cost ?? 0) * $componentQty,
+                                ]);
+                            }
+                        }
+
+                        Log::debug('🔄 ORDER ITEM TYPE CHANGED', [
+                            'order_item_id' => $orderItem->id,
+                            'old_type' => $oldType,
+                            'new_type' => $type,
+                            'new_id' => $productId,
+                        ]);
+                    } elseif ($isProductChanged) {
                         Log::debug('🔄 UPDATE COMPONENT PRODUCT ID', [
                             'order_item_id' => $orderItem->id,
                             'old_product_id' => $oldProductIdForComponent,
@@ -2874,7 +2934,51 @@ class SaleListController extends Controller
                     ]);
 
                     // 🔥 BARU: Update inventory stock - handle perubahan produk DAN quantity
-                    if ($type === 'satuan') {
+                    if ($isTypeChanged) {
+                        // Kembalikan stok sesuai tipe LAMA
+                        if ($oldType === 'satuan') {
+                            if ($oldProductIdForComponent) {
+                                InventoryStock::firstOrCreate(
+                                    ['product_id' => $oldProductIdForComponent, 'inventory_warehouse_id' => $warehouseId],
+                                    ['stock_after_sales' => 0]
+                                )->increment('stock_after_sales', $oldQty);
+                            }
+                        } else {
+                            $oldBundle = ProductBundle::with('items')->find($oldBundleIdForComponent);
+
+                            foreach ($oldBundle?->items ?? [] as $oldBundleItem) {
+                                if (! $oldBundleItem->product_id) {
+                                    continue;
+                                }
+
+                                InventoryStock::firstOrCreate(
+                                    ['product_id' => $oldBundleItem->product_id, 'inventory_warehouse_id' => $warehouseId],
+                                    ['stock_after_sales' => 0]
+                                )->increment('stock_after_sales', $oldQty * ($oldBundleItem->quantity ?? 1));
+                            }
+                        }
+
+                        // Ambil stok sesuai tipe BARU
+                        if ($type === 'satuan') {
+                            InventoryStock::firstOrCreate(
+                                ['product_id' => (int) $productId, 'inventory_warehouse_id' => $warehouseId],
+                                ['stock_after_sales' => 0]
+                            )->decrement('stock_after_sales', $qty);
+                        } else {
+                            $newBundle = ProductBundle::with('items')->find($productId);
+
+                            foreach ($newBundle?->items ?? [] as $newBundleItem) {
+                                if (! $newBundleItem->product_id) {
+                                    continue;
+                                }
+
+                                InventoryStock::firstOrCreate(
+                                    ['product_id' => $newBundleItem->product_id, 'inventory_warehouse_id' => $warehouseId],
+                                    ['stock_after_sales' => 0]
+                                )->decrement('stock_after_sales', $qty * ($newBundleItem->quantity ?? 1));
+                            }
+                        }
+                    } elseif ($type === 'satuan') {
                         $oldProductId = $oldProductIdForComponent;
                         $newProductId = (int) $productId;
 
