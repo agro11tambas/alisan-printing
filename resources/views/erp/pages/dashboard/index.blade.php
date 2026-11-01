@@ -306,15 +306,81 @@
                     </div>
                 </div>
             </div>
+            <div class="col-xxl-3 col-lg-4 col-md-6">
+                <div class="card stretch stretch-full">
+                    <div class="card-body">
+                        <div class="hstack justify-content-between lh-base mb-2">
+                            <span class="fs-12 fw-medium text-muted">Repeat vs New Customer</span>
+                            <div class="hstack gap-2 fs-11 text-success">
+                                <i class="feather-circle fs-14"></i>
+                            </div>
+                        </div>
+                        <div id="CustomerTypeChart"></div>
+                        <div class="d-flex flex-wrap fs-12 text-muted">
+                            <span>Repeat Order: <span class="fw-semibold text-dark" id="RepeatCustomer">0</span></span>
+                            <span class="mx-1">|</span>
+                            <span>New Customer: <span class="fw-semibold text-dark" id="NewCustomer">0</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('assets/vendors/js/apexcharts.min.js') }}"></script>
     <script>
         function formatRupiah(angka) {
             return new Intl.NumberFormat('id-ID').format(angka);
+        }
+
+        let customerTypeChart = null;
+
+        function renderCustomerTypeChart(data) {
+            // Series kosong supaya ApexCharts menampilkan teks noData, bukan donat 0/0
+            const series = (data.repeat + data.new) > 0 ? [data.repeat, data.new] : [];
+            $('#RepeatCustomer').text(data.repeat);
+            $('#NewCustomer').text(data.new);
+
+            if (customerTypeChart) {
+                customerTypeChart.updateSeries(series);
+                return;
+            }
+
+            customerTypeChart = new ApexCharts(document.querySelector('#CustomerTypeChart'), {
+                chart: {
+                    type: 'donut',
+                    height: 240
+                },
+                series: series,
+                labels: ['Repeat Order', 'New Customer'],
+                colors: ['#3454d1', '#25b865'],
+                legend: {
+                    position: 'bottom'
+                },
+                dataLabels: {
+                    enabled: true
+                },
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            labels: {
+                                show: true,
+                                total: {
+                                    show: true,
+                                    label: 'Customer'
+                                }
+                            }
+                        }
+                    }
+                },
+                noData: {
+                    text: 'Tidak ada data'
+                }
+            });
+            customerTypeChart.render();
         }
 
         function fetchAccount(filter, start = '', end = '') {
@@ -401,6 +467,8 @@
                     $('#InventoryValue').text('Rp ' + formatRupiah(response.inventoryValue));
                     $('#ProductionValue').text('Rp ' + formatRupiah(response.productionValue));
                     $('#TotalInventoryValuation').text('Rp ' + formatRupiah(response.totalInventoryValuation));
+
+                    renderCustomerTypeChart(response.customerType);
                 },
                 error: function(err) {}
             });

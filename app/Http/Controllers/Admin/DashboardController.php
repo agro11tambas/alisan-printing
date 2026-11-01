@@ -133,6 +133,29 @@ class DashboardController extends Controller
         $response['receivedFromCustomer'] = (float) $saleSummary->received_total;
         $response['receivableFromCustomer'] = (float) $saleSummary->total_sale_list - (float) $saleSummary->received_total;
 
+        // Customer yang bertransaksi di periode filter. Repeat = total order-nya
+        // (sejak awal sampai akhir periode) lebih dari 1; new = baru 1 order.
+        $customerOrders = Order::query()
+            ->whereIn('status', [$SALE_ORDER, $SALE_LIST])
+            ->whereNotNull('customer_id')
+            ->select('customer_id', DB::raw('COUNT(*) AS total_orders'))
+            ->groupBy('customer_id');
+
+        if ($startDate && $endDate) {
+            $customerOrders->where('order_date', '<=', $endDate)
+                ->havingRaw('SUM(CASE WHEN order_date >= ? THEN 1 ELSE 0 END) > 0', [$startDate]);
+        }
+
+        $customerType = DB::query()->fromSub($customerOrders, 'co')->selectRaw(
+            "COALESCE(SUM(CASE WHEN total_orders > 1 THEN 1 ELSE 0 END), 0) AS repeat_count,
+            COALESCE(SUM(CASE WHEN total_orders = 1 THEN 1 ELSE 0 END), 0) AS new_count"
+        )->first();
+
+        $response['customerType'] = [
+            'repeat' => (int) $customerType->repeat_count,
+            'new' => (int) $customerType->new_count,
+        ];
+
         $purchaseBase = Purchase::query();
         if ($startDate && $endDate) {
             $purchaseBase->whereBetween('purchase_date', [$startDate, $endDate]);
