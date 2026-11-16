@@ -25,17 +25,6 @@
                             sebelum menutup.
                         </div>
 
-                        <div class="mb-3">
-                            <label for="loginLinkExpiresInHours" class="form-label fw-semibold">Masa Berlaku
-                                (jam)</label>
-                            <input type="number" id="loginLinkExpiresInHours" class="form-control" min="1"
-                                placeholder="Kosongkan = berlaku sampai dicabut">
-                            <div class="form-text">
-                                Kosongkan kalau link tidak perlu kedaluwarsa. Link dimatikan lewat menu
-                                "Cabut Link Login".
-                            </div>
-                        </div>
-
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" value="1" id="loginLinkSingleUse">
                             <label class="form-check-label" for="loginLinkSingleUse">

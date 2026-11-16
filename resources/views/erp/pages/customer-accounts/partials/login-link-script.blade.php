@@ -51,7 +51,6 @@
             const loginLinkUrl = document.getElementById('loginLinkUrl');
             const loginLinkMessage = document.getElementById('loginLinkMessage');
             const loginLinkError = document.getElementById('loginLinkError');
-            const loginLinkExpiresInput = document.getElementById('loginLinkExpiresInHours');
             const loginLinkSingleUseInput = document.getElementById('loginLinkSingleUse');
             const generateButton = document.getElementById('generateLoginLink');
             const copyButton = document.getElementById('copyLoginLinkUrl');
@@ -77,8 +76,7 @@
                 loginLinkError.classList.add('d-none');
                 loginLinkError.textContent = '';
                 loginLinkUrl.value = '';
-                // Default baru: tanpa kedaluwarsa dan boleh dipakai berkali-kali.
-                loginLinkExpiresInput.value = '';
+                // Link tidak pernah kedaluwarsa; default-nya boleh dipakai berkali-kali.
                 loginLinkSingleUseInput.checked = false;
                 whatsappButton.href = '#';
                 whatsappButton.classList.toggle('d-none', !loginLinkCustomerPhone);
@@ -94,9 +92,6 @@
                 generateButton.textContent = 'Memproses...';
                 loginLinkError.classList.add('d-none');
 
-                const rawExpires = loginLinkExpiresInput.value.trim();
-                const expiresInHours = rawExpires === '' ? null : parseInt(rawExpires, 10);
-
                 try {
                     const response = await fetch(loginLinkEndpoint, {
                         method: 'POST',
@@ -106,7 +101,6 @@
                             'X-CSRF-TOKEN': loginLinkForm.querySelector('input[name="_token"]').value,
                         },
                         body: JSON.stringify({
-                            expires_in_hours: expiresInHours,
                             single_use: loginLinkSingleUseInput.checked,
                         }),
                     });

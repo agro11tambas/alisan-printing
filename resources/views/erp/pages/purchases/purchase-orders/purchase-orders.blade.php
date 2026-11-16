@@ -135,18 +135,9 @@
                                     </div>
                                 </div>
                             </div>
-                            {{-- PO Status, Filter By, dan Search dirapatkan jadi satu
-                                 grup di kanan. --}}
+                            {{-- Filter By dan Search dirapatkan jadi satu grup di kanan. --}}
                             <div class="col-lg-6">
                                 <div class="row g-2 justify-content-end">
-                                    <div class="col-md-4">
-                                        <label for="search_po_status" class="fw-semibold fs-12">PO Status</label>
-                                        <select id="search_po_status" class="form-control"
-                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
-                                            <option value="progress" selected>Progress</option>
-                                            <option value="completed">Completed</option>
-                                        </select>
-                                    </div>
                                     <div class="col-md-4">
                                         <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                         <select id="search_type" class="form-control"
@@ -612,7 +603,6 @@
                         end_date: $('#end_date').val(),
                         search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
-                        po_status: $('#search_po_status').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -731,9 +721,9 @@
             });
 
             // Hanya 'change'. Sebelumnya 'click' ikut di-bind, jadi sekadar
-            // membuka dropdown PO Status / Filter By sudah memicu reload tabel
-            // sebelum user sempat memilih apa pun.
-            $('#filter, #search_type, #search_po_status, #start_date, #end_date')
+            // membuka dropdown Filter By sudah memicu reload tabel sebelum user
+            // sempat memilih apa pun.
+            $('#filter, #search_type, #start_date, #end_date')
                 .on('change', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
@@ -755,7 +745,6 @@
                     end_date: $('#end_date').val() || '',
                     search_type: $('#search_type').val() || '',
                     search_keyword: $('#search_keyword').val() || '',
-                    po_status: $('#search_po_status').val() || '',
                 };
             };
 

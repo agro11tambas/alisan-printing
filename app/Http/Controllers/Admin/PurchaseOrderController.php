@@ -70,16 +70,6 @@ class PurchaseOrderController extends Controller
             );
         }
 
-        // ✅ Filter PO Status: Progress atau Completed (semua PL-nya sudah
-        // stock in dan lunas). Bisa dipakai barengan dengan pencarian.
-        if ($request->filled('po_status')) {
-            $statuses = $request->po_status === 'completed'
-                ? Purchase::APPROVAL_COMPLETED_STATUSES
-                : Purchase::APPROVAL_PROGRESS_STATUSES;
-
-            $purchases->whereIn('approval_status', $statuses);
-        }
-
         // ✅ Filter pencarian
         if ($request->filled('search_keyword')) {
             $keyword = '%'.$request->search_keyword.'%';
@@ -142,14 +132,13 @@ class PurchaseOrderController extends Controller
             'supplier:id,name',
             'user:id,name',
             'purchaseLists' => fn ($query) => $query
-                ->select(['id', 'parent_purchase_id', 'purchase_number', 'purchase_date', 'total_amount_product', 'payment_status', 'stock_destination'])
+                ->select(['id', 'parent_purchase_id', 'purchase_number', 'purchase_date', 'total_amount', 'total_amount_product', 'paid_amount_product', 'payment_status', 'stock_destination'])
                 ->withSum('purchaseItems as qty_base_total', 'qty_base')
                 ->withSum('purchaseInventoryItems as stock_in_base', 'stock_in')
                 ->orderByDesc('purchase_date')
                 ->orderByDesc('id'),
         ])
             ->withCount('purchaseLists')
-            ->withSum('purchaseLists as purchase_list_product_total', 'total_amount_product')
             // PL anak yang sudah dibayar mengunci PO-nya (tombol Delete hilang).
             ->withExists([
                 'purchaseLists as has_paid_purchase_list' => fn ($query) => $query
@@ -191,14 +180,20 @@ class PurchaseOrderController extends Controller
                     ? ' <i class="fa fa-check-circle text-success ms-1" title="Stock In selesai"></i>'
                     : '';
 
+                // PO induk cuma menghitung PL yang belum lunas: jumlahnya dan
+                // sisa tagihan produknya. PL yang sudah Paid tidak dihitung lagi.
+                $unpaidLists = $lists->filter(fn ($list) => ! in_array($list->payment_status, ['Paid', 'Overpaid'], true)
+                    && (float) $list->total_amount > 0);
+                $unpaidRemaining = $unpaidLists->sum(fn ($list) => max(0, (float) $list->total_amount_product - (float) $list->paid_amount_product));
+
                 // Listing PO cuma menampilkan supplier; nomor PO tidak ditampilkan.
                 $supplierHtml = '
                 <div>
                     <div>'.e($purchase->supplier->name ?? '-').$completeIcon.'</div>
-                    <small class="text-muted">'.number_format((int) $purchase->purchase_lists_count, 0, ',', '.').' Purchase List</small>
+                    <small class="text-muted">'.number_format($unpaidLists->count(), 0, ',', '.').' Purchase List</small>
                 </div>';
 
-                $totalAmount = 'Rp '.number_format((float) ($purchase->purchase_list_product_total ?? 0), 0, ',', '.');
+                $totalAmount = 'Rp '.number_format($unpaidRemaining, 0, ',', '.');
 
                 $purchaseLists = $lists->map(fn ($list) => [
                     'id' => $list->id,

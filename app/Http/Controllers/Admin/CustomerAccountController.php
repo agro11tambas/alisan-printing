@@ -205,20 +205,16 @@ class CustomerAccountController extends Controller
             ], 422);
         }
 
-        // expires_in_hours yang kosong berarti link tidak pernah kedaluwarsa —
-        // link dimatikan lewat tombol cabut, bukan lewat umur.
-        $validated = $request->validate([
-            'expires_in_hours' => 'nullable|integer|min:1',
+        // Link baru tidak pernah kedaluwarsa — link dimatikan lewat tombol
+        // cabut, bukan lewat umur. expires_at hanya tersisa di link lama.
+        $request->validate([
             'single_use' => 'nullable|boolean',
         ]);
 
-        $expiresInHours = isset($validated['expires_in_hours']) && $validated['expires_in_hours'] !== null
-            ? (int) $validated['expires_in_hours']
-            : null;
         $singleUse = $request->boolean('single_use');
 
         $code = CustomerLoginLink::generateCode();
-        $expiresAt = $expiresInHours ? now()->addHours($expiresInHours) : null;
+        $expiresAt = null;
 
         // Satu link aktif per customer. Link yang masih bisa dipakai harus
         // dicabut admin dulu lewat Cabut Link Login, supaya link yang sudah
@@ -265,16 +261,12 @@ class CustomerAccountController extends Controller
 
         $loginUrl = CustomerLoginLink::urlForCode($code);
 
-        $message = $expiresAt
-            ? 'Link login berhasil dibuat dan berlaku selama '.$expiresInHours.' jam.'
-            : 'Link login berhasil dibuat dan berlaku sampai dicabut.';
-
         return response()->json([
             'success' => true,
-            'message' => $message,
+            'message' => 'Link login berhasil dibuat dan berlaku sampai dicabut.',
             'data' => [
                 'login_url' => $loginUrl,
-                'expires_at' => $expiresAt?->toIso8601String(),
+                'expires_at' => null,
                 'single_use' => $singleUse,
                 'revoked_previous' => $revokedCount,
             ],
