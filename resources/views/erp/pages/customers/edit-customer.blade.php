@@ -228,7 +228,7 @@
                                                 </div>
                                                 <div class="col-lg-1">
                                                     <button type="button"
-                                                        class="btn btn-danger btn-remove {{ $loop->first ? 'd-none' : '' }}">
+                                                        class="btn btn-danger btn-remove">
                                                         <i class="feather-x"></i>
                                                     </button>
                                                 </div>
@@ -332,13 +332,8 @@
 
         function updateRemoveButtons() {
             const groups = document.querySelectorAll('#addresses .address-group');
-            groups.forEach((group, idx) => {
-                const btn = group.querySelector('.btn-remove');
-                if (idx === 0) {
-                    btn.classList.add('d-none');
-                } else {
-                    btn.classList.remove('d-none');
-                }
+            groups.forEach(group => {
+                group.querySelector('.btn-remove')?.classList.remove('d-none');
             });
         }
 
@@ -451,6 +446,16 @@
             }
 
             const addressGroups = form.querySelectorAll('.address-group');
+
+            if (addressGroups.length === 0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal!',
+                    text: 'Minimal harus ada 1 alamat.',
+                });
+                isValid = false;
+            }
+
             addressGroups.forEach((group, index) => {
                 const addressInput = group.querySelector(`textarea[name^="addresses"][name$="[address]"]`);
                 const mapsInput = group.querySelector(`input[name^="addresses"][name$="[google_maps]"]`);

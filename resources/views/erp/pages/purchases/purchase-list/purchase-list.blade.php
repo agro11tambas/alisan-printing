@@ -339,13 +339,41 @@
                         </div>
                         <div class="alert alert-warning mb-0">
                             Verifikasi ini adalah penanda bahwa quantity sudah dicek dan benar. Tidak
-                            mengunci edit, hapus, maupun Stock In, dan belum dapat dibatalkan.
+                            mengunci edit, hapus, maupun Stock In, dan masih dapat dibatalkan lewat menu aksi.
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-primary">
                             <i class="feather-check-circle me-2"></i>Ya, Verifikasi
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalUnverifyQuantity" tabindex="-1" aria-labelledby="unverifyQuantityLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" id="formUnverifyQuantity">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-white">
+                        <h5 class="modal-title text-white" id="unverifyQuantityLabel">Batalkan Verifikasi Quantity</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">
+                            Batalkan verifikasi quantity Purchase List <strong id="unverifyQuantityNumber"></strong>?
+                            Statusnya akan kembali menjadi Unverified.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="feather-x-circle me-2"></i>Ya, Batalkan
                         </button>
                     </div>
                 </div>
@@ -1646,6 +1674,59 @@
                             title: 'Gagal!',
                             text: xhr.responseJSON?.message ??
                                 'Terjadi kesalahan saat memverifikasi quantity.'
+                        });
+                    },
+                    complete: function() {
+                        submitButton.prop('disabled', false);
+                    }
+                });
+            });
+
+            // ========== BATALKAN VERIFIKASI QUANTITY ==========
+            $('#modalUnverifyQuantity').on('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                if (!button) return;
+
+                $('#formUnverifyQuantity')
+                    .attr('action', button.getAttribute('data-url'))
+                    .data('purchase-id', button.getAttribute('data-id'));
+                $('#unverifyQuantityNumber').text(button.getAttribute('data-number') || '-');
+            });
+
+            $('#formUnverifyQuantity').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = this;
+                const purchaseId = $(form).data('purchase-id');
+                const submitButton = $(form).find('[type="submit"]');
+
+                submitButton.prop('disabled', true);
+
+                $.ajax({
+                    url: form.action,
+                    type: 'POST',
+                    data: $(form).serialize(),
+                    success: function(res) {
+                        $('#modalUnverifyQuantity').modal('hide');
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Verifikasi quantity berhasil dibatalkan.',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        if (!updatePurchaseRow(purchaseId, res)) {
+                            reloadActiveTab();
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat membatalkan verifikasi quantity.'
                         });
                     },
                     complete: function() {

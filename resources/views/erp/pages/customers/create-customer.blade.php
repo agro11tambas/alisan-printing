@@ -181,7 +181,7 @@
                                                 </div>
                                             </div>
                                             <div class="col-lg-1 d-flex">
-                                                <button type="button" class="btn btn-danger btn-remove d-none"><i
+                                                <button type="button" class="btn btn-danger btn-remove"><i
                                                         class="feather-x"></i> Remove</button>
                                             </div>
                                         </div>
@@ -280,13 +280,8 @@
 
         function updateRemoveButtons() {
             const allItems = document.querySelectorAll('#addresses .address-item');
-            allItems.forEach((item, idx) => {
-                const removeBtn = item.querySelector('.btn-remove');
-                if (idx === 0) {
-                    removeBtn.classList.add('d-none');
-                } else {
-                    removeBtn.classList.remove('d-none');
-                }
+            allItems.forEach(item => {
+                item.querySelector('.btn-remove')?.classList.remove('d-none');
             });
         }
 
@@ -394,6 +389,15 @@
             }
 
             const addressGroups = form.querySelectorAll('.address-item');
+
+            if (addressGroups.length === 0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal!',
+                    text: 'Minimal harus ada 1 alamat.',
+                });
+                isValid = false;
+            }
 
             addressGroups.forEach((group, index) => {
                 const addressInput = group.querySelector(`[name^="addresses"][name$="[address]"]`);

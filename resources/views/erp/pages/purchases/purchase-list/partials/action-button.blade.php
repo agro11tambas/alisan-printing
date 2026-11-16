@@ -2,7 +2,19 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
-                {{-- Hanya PL turunan PO, dan hilang begitu quantity-nya terverifikasi. --}}
+                {{-- Hanya PL turunan PO: Verify saat belum, Un-verify saat sudah terverifikasi. --}}
+                @if ($purchase->canUnverifyQuantity())
+                    <li>
+                        <button type="button" class="dropdown-item btn-unverify-quantity" data-bs-toggle="modal"
+                            data-bs-target="#modalUnverifyQuantity" data-id="{{ $purchase->id }}"
+                            data-number="{{ $purchase->purchase_number }}"
+                            data-url="{{ route('purchase-list.unverify-quantity', $purchase->id) }}">
+                            <i class="feather feather-x-circle me-3"></i>
+                            <span>Batalkan Verifikasi Quantity</span>
+                        </button>
+                    </li>
+                @endif
+
                 @if ($purchase->canVerifyQuantity())
                     <li>
                         <button type="button" class="dropdown-item btn-verify-quantity" data-bs-toggle="modal"

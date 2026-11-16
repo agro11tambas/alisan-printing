@@ -250,6 +250,14 @@ class Purchase extends Model
             && ! $this->isQuantityVerified();
     }
 
+    /** Pembatalan verifikasi quantity: kebalikan dari canVerifyQuantity(). */
+    public function canUnverifyQuantity(): bool
+    {
+        return $this->status === 'Purchase List'
+            && $this->parent_purchase_id !== null
+            && $this->isQuantityVerified();
+    }
+
     /**
      * Hitung ulang approval_status PO dari Purchase List anaknya:
      * Draft (belum ada PL) -> Completed PL (ada PL yang belum beres) ->

@@ -2472,6 +2472,38 @@ class PurchaseListController extends Controller
         ]);
     }
 
+    /**
+     * Batalkan verifikasi quantity, mis. karena salah klik atau qty ternyata
+     * perlu dicek ulang. Penanda dikosongkan sehingga kembali "Unverified".
+     */
+    public function unverifyQuantity($id)
+    {
+        $purchase = Purchase::where('status', 'Purchase List')->findOrFail($id);
+
+        if (! $purchase->parent_purchase_id) {
+            return response()->json([
+                'message' => 'Verifikasi quantity hanya untuk Purchase List turunan Purchase Order.',
+            ], 422);
+        }
+
+        if (! $purchase->isQuantityVerified()) {
+            return response()->json([
+                'message' => 'Quantity Purchase List ini belum diverifikasi.',
+            ], 422);
+        }
+
+        $purchase->update([
+            'quantity_verified_at' => null,
+            'quantity_verified_by' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Verifikasi quantity berhasil dibatalkan.',
+            'quantity_verified_html' => '<div class="badge bg-soft-warning text-warning">Unverified</div>',
+            'action_html' => $this->renderActionButton($purchase),
+        ]);
+    }
+
     public function verifyPayment($groupId)
     {
         try {
