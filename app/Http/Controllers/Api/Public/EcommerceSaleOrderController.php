@@ -24,6 +24,7 @@ use App\Services\DiscountScopeMatcher;
 use App\Services\EcommercePricingService;
 use App\Services\InvoiceNumberService;
 use Carbon\Carbon;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -122,6 +123,7 @@ class EcommerceSaleOrderController extends Controller
             'payment_method' => ['nullable', 'string', 'max:255'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
+            'checkout_key' => ['nullable', 'string', 'max:64'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.ecommerce_product_id' => ['required', 'integer', 'exists:ecommerce_products,id'],
             'items.*.ecommerce_variant_combination_id' => ['nullable', 'integer', 'exists:ecommerce_variant_combinations,id'],
@@ -136,6 +138,15 @@ class EcommerceSaleOrderController extends Controller
         ]);
 
         $account = $this->customerAccount($request, $validated['shipping'] ?? []);
+        $checkoutKey = $validated['checkout_key'] ?? null;
+
+        // Checkout yang sama dikirim ulang (klik dobel, atau coba lagi setelah
+        // website timeout padahal order pertama sudah tersimpan): kembalikan
+        // order yang sudah ada, jangan buat order kedua.
+        if ($checkoutKey && $existing = $this->checkoutOrder($account, $checkoutKey)) {
+            return $this->checkoutOrderResponse($existing);
+        }
+
         $customer = $this->resolveCustomer($account, $validated['customer_id'] ?? null, $validated['shipping'] ?? []);
         $address = $this->resolveAddress(
             $customer,
@@ -154,9 +165,80 @@ class EcommerceSaleOrderController extends Controller
             ? $lineItems[0]['mode']
             : 'mixed';
 
-        $order = DB::transaction(function () use (
+        try {
+            $order = $this->createWebsiteOrder(
+                $account,
+                $address,
+                $customer,
+                $checkoutKey,
+                $discountTotal,
+                $grandTotal,
+                $lineItems,
+                $orderDate,
+                $orderMode,
+                $paidAmount,
+                $remainingAmount,
+                $subTotal,
+                $validated
+            );
+        } catch (UniqueConstraintViolationException $e) {
+            // Dua request dengan kode yang sama tiba bersamaan: yang kalah
+            // tertahan di unique index sampai yang menang commit.
+            $existing = $checkoutKey ? $this->checkoutOrder($account, $checkoutKey) : null;
+
+            if (! $existing) {
+                throw $e;
+            }
+
+            return $this->checkoutOrderResponse($existing);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sale order created successfully.',
+            'data' => $this->orderPayload($order),
+        ], 201);
+    }
+
+    private function checkoutOrder(CustomerAccount $account, string $checkoutKey): ?Order
+    {
+        return Order::with(array_merge(
+            self::ORDER_PAYLOAD_RELATIONS,
+            ['orderItems.components.product']
+        ))
+            ->where('checkout_key', $checkoutKey)
+            ->where('customer_account_id', $account->id)
+            ->first();
+    }
+
+    private function checkoutOrderResponse(Order $order)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Sale order already created.',
+            'data' => $this->orderPayload($order),
+        ], 200);
+    }
+
+    private function createWebsiteOrder(
+        CustomerAccount $account,
+        CustomerAddresses $address,
+        Customers $customer,
+        ?string $checkoutKey,
+        float $discountTotal,
+        float $grandTotal,
+        array $lineItems,
+        Carbon $orderDate,
+        string $orderMode,
+        float $paidAmount,
+        float $remainingAmount,
+        float $subTotal,
+        array $validated
+    ): Order {
+        return DB::transaction(function () use (
             $account,
             $address,
+            $checkoutKey,
             $customer,
             $discountTotal,
             $grandTotal,
@@ -165,7 +247,6 @@ class EcommerceSaleOrderController extends Controller
             $orderMode,
             $paidAmount,
             $remainingAmount,
-            $request,
             $subTotal,
             $validated
         ) {
@@ -190,6 +271,7 @@ class EcommerceSaleOrderController extends Controller
                 'remaining_amount' => $remainingAmount,
                 'mode' => $orderMode,
                 'source' => 'website',
+                'checkout_key' => $checkoutKey,
                 'discount_active' => $discountTotal > 0,
             ]);
 
@@ -249,12 +331,6 @@ class EcommerceSaleOrderController extends Controller
                 ['orderItems.components.product']
             ));
         });
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Sale order created successfully.',
-            'data' => $this->orderPayload($order),
-        ], 201);
     }
 
     public function show(Request $request, Order $order)

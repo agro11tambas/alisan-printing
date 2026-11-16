@@ -33,6 +33,7 @@ class Order extends Model
         'google_maps',
         'mode',
         'source',
+        'checkout_key',
         'verified',
         'notes',
         'delivery_image',
