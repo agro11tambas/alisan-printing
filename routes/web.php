@@ -316,6 +316,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::post('/erp/sales/sale-list/return-money/{id}', [SaleListController::class, 'returnMoney']);
             Route::get('/erp/sales/sale-list/data-deleted', [SaleListController::class, 'dataDeletedSaleList']);
             Route::get('/erp/sales/sale-list/data-edited', [SaleListController::class, 'dataSaleListEdited']);
+            Route::get('/erp/sales/sale-list/data-recap', [SaleListController::class, 'dataSaleListRecap']);
             Route::delete('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDelete'])->name('sales.forceDelete');
             Route::post('/erp/sales/sale-list/restore/{id}', [SaleListController::class, 'restore'])->name('sales.restore');
             Route::put('/erp/sales/mark-as-waiting-list/{id}', [SaleListController::class, 'markAsWaitingList']);

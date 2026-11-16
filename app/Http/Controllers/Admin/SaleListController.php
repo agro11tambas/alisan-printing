@@ -645,6 +645,127 @@ class SaleListController extends Controller
         ]);
     }
 
+    /**
+     * Rekap Sale List per salesperson (user pembuat order) mengikuti filter
+     * yang sedang aktif di halaman.
+     *
+     * - New Customer: customer unik yang Sale List PERTAMANYA (sepanjang masa)
+     *   ada di antara order salesperson ini pada periode filter.
+     * - Existing Customer: customer unik lain yang order ke salesperson ini
+     *   pada periode filter (sudah pernah order sebelumnya).
+     * - Qty Dus: semua item dikonversi ke Dus lewat konversi satuan produk /
+     *   bundle. Item tanpa satuan Dus tidak ikut dihitung.
+     * - Omzet: jumlah grand_total order.
+     */
+    public function dataSaleListRecap(Request $request)
+    {
+        $user = Auth::user();
+
+        $orders = Order::query()
+            ->select(['id', 'user_id', 'customer_id', 'order_date', 'grand_total'])
+            ->with([
+                'user:id,name',
+                'orderItems:id,order_id,product_id,product_bundle_id,quantity,unit_name,unit_conversion_value,qty_base',
+            ])
+            ->where('status', 'sale list');
+
+        if (in_array($user->role, ['Sales'])) {
+            $orders->where('user_id', $user->id);
+        }
+
+        $this->applySaleListFilters($orders, $request);
+
+        $orders = $orders->get();
+
+        // Tanggal Sale List pertama tiap customer, dihitung dari SELURUH Sale
+        // List (tanpa filter periode/salesperson) supaya "new" berarti benar-
+        // benar order pertama customer itu.
+        $customerIds = $orders->pluck('customer_id')->filter()->unique()->values();
+        $firstOrderDates = $customerIds->isEmpty()
+            ? collect()
+            : Order::query()
+                ->where('status', 'sale list')
+                ->whereIn('customer_id', $customerIds)
+                ->groupBy('customer_id')
+                ->selectRaw('customer_id, MIN(order_date) as first_order_date')
+                ->pluck('first_order_date', 'customer_id');
+
+        // Nilai konversi satuan Dus per produk / bundle (dalam satuan dasar).
+        $items = $orders->flatMap(fn ($order) => $order->orderItems);
+
+        $productDusFactors = \App\Models\ProductUnitConversion::query()
+            ->whereIn('product_id', $items->pluck('product_id')->filter()->unique()->values())
+            ->whereHas('unit', fn ($q) => $q->where('name', 'Dus'))
+            ->pluck('conversion_value', 'product_id');
+
+        $bundleDusFactors = \App\Models\ProductBundleUnitConversion::query()
+            ->whereIn('product_bundle_id', $items->pluck('product_bundle_id')->filter()->unique()->values())
+            ->whereHas('unit', fn ($q) => $q->where('name', 'Dus'))
+            ->pluck('conversion_value', 'product_bundle_id');
+
+        $toDus = function ($item) use ($productDusFactors, $bundleDusFactors): float {
+            if (strcasecmp((string) $item->unit_name, 'Dus') === 0) {
+                return (float) $item->quantity;
+            }
+
+            $factor = $item->product_bundle_id
+                ? (float) ($bundleDusFactors[$item->product_bundle_id] ?? 0)
+                : (float) ($productDusFactors[$item->product_id] ?? 0);
+
+            if ($factor <= 0) {
+                return 0.0;
+            }
+
+            $qtyBase = (float) ($item->qty_base
+                ?: $item->quantity * max((float) ($item->unit_conversion_value ?? 1), 1));
+
+            return $qtyBase / $factor;
+        };
+
+        $rows = $orders
+            ->groupBy('user_id')
+            ->map(function ($salesOrders) use ($firstOrderDates, $toDus) {
+                $newCustomers = [];
+                $allCustomers = [];
+
+                foreach ($salesOrders as $order) {
+                    if (! $order->customer_id) {
+                        continue;
+                    }
+
+                    $allCustomers[$order->customer_id] = true;
+
+                    $firstDate = $firstOrderDates[$order->customer_id] ?? null;
+                    if ($firstDate && Carbon::parse($order->order_date)->equalTo(Carbon::parse($firstDate))) {
+                        $newCustomers[$order->customer_id] = true;
+                    }
+                }
+
+                $newCount = count($newCustomers);
+                $existingCount = count($allCustomers) - $newCount;
+                $totalCustomers = $newCount + $existingCount;
+
+                $qtyDus = $salesOrders->sum(
+                    fn ($order) => $order->orderItems->sum(fn ($item) => $toDus($item))
+                );
+
+                return [
+                    // Order tanpa user_id (mis. dari website) dikelompokkan jadi satu baris.
+                    'name' => $salesOrders->first()->user->name ?? 'Tanpa Salesperson',
+                    'new_customer' => $newCount,
+                    'existing_customer' => $existingCount,
+                    'new_customer_percentage' => $totalCustomers > 0 ? round($newCount / $totalCustomers * 100, 1) : 0,
+                    'existing_customer_percentage' => $totalCustomers > 0 ? round($existingCount / $totalCustomers * 100, 1) : 0,
+                    'qty_dus' => round($qtyDus, 2),
+                    'omzet' => (float) $salesOrders->sum('grand_total'),
+                ];
+            })
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        return response()->json(['data' => $rows]);
+    }
+
     public function dataSaleListEdited(Request $request)
     {
         $user = Auth::user();

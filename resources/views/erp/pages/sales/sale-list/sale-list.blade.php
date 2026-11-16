@@ -237,6 +237,15 @@
             flex: 0 0 auto;
             text-align: right;
         }
+        #recapSaleListTable th {
+            white-space: nowrap;
+            font-weight: 700;
+        }
+
+        #recapSaleListTable .recap-group-start {
+            border-left-width: 3px;
+        }
+
         @include('erp.pages.partials.transaction-list-mobile-header-styles')
     </style>
 @endpush
@@ -386,6 +395,10 @@
                                 <a class="nav-link" id="edited-sale-list-tab" data-bs-toggle="tab"
                                     href="#edited-sale-list" role="tab">Edited Sale List</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="recap-sale-list-tab" data-bs-toggle="tab"
+                                    href="#recap-sale-list" role="tab">Rekap</a>
+                            </li>
                         </ul>
                         <div class="table-responsive ">
                             <div class="tab-content">
@@ -437,6 +450,35 @@
                                             <div class="shimmer"></div>
                                             <div class="shimmer"></div>
                                         </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade show" id="recap-sale-list" role="tabpanel">
+                                    <div class="px-2 pb-2">
+                                        <div class="fw-semibold mb-2">Salespeople</div>
+                                        <table class="table table-bordered text-center align-middle mb-0"
+                                            id="recapSaleListTable">
+                                            <thead>
+                                                <tr>
+                                                    <th rowspan="2" class="text-start">Name</th>
+                                                    <th colspan="2" class="recap-group-start">Customer</th>
+                                                    <th colspan="2" class="recap-group-start">Percentage</th>
+                                                    <th class="recap-group-start">Qty</th>
+                                                    <th rowspan="2" class="recap-group-start">Omzet</th>
+                                                </tr>
+                                                <tr>
+                                                    <th class="recap-group-start">New Customer</th>
+                                                    <th>Existing Customer</th>
+                                                    <th class="recap-group-start">New Customer</th>
+                                                    <th>Existing Customer</th>
+                                                    <th class="recap-group-start">Dus</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="recapSaleListBody">
+                                                <tr>
+                                                    <td colspan="7" class="text-muted">Memuat data...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                                 <div class="tab-pane fade show" id="deleted-sale-list" role="tabpanel">
@@ -942,6 +984,8 @@
                     resetAndReloadDeleted();
                 } else if (activeTab === '#edited-sale-list') {
                     resetAndReloadEdited();
+                } else if (activeTab === '#recap-sale-list') {
+                    loadRecap();
                 } else {
                     resetAndReload();
                 }
@@ -1660,7 +1704,68 @@
                     if (!deletedTableInitialized) initDeletedTable();
                     resetAndReloadDeleted();
                 }
+
+                if (target === '#recap-sale-list') {
+                    loadRecap();
+                }
             });
+
+            // ========== REKAP SALE LIST (per salesperson) ==========
+            // Ikut filter tanggal & pencarian yang sedang aktif di halaman.
+            let recapRequest = null;
+
+            function loadRecap() {
+                const $body = $('#recapSaleListBody');
+                $body.html('<tr><td colspan="7" class="text-muted">Memuat data...</td></tr>');
+
+                if (recapRequest) recapRequest.abort();
+
+                recapRequest = $.ajax({
+                    url: '/erp/sales/sale-list/data-recap',
+                    type: 'GET',
+                    data: {
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                    },
+                    success: function(res) {
+                        const rows = res.data || [];
+                        $body.empty();
+
+                        if (rows.length === 0) {
+                            $body.html('<tr><td colspan="7" class="text-muted">Tidak ada data.</td></tr>');
+                            return;
+                        }
+
+                        const number = new Intl.NumberFormat('id-ID', {
+                            maximumFractionDigits: 2
+                        });
+
+                        rows.forEach(function(row) {
+                            $body.append(
+                                $('<tr>')
+                                .append($('<td class="text-start">').text(row.name))
+                                .append($('<td class="recap-group-start">').text(number.format(row.new_customer)))
+                                .append($('<td>').text(number.format(row.existing_customer)))
+                                .append($('<td class="recap-group-start">').text(number.format(row.new_customer_percentage) + '%'))
+                                .append($('<td>').text(number.format(row.existing_customer_percentage) + '%'))
+                                .append($('<td class="recap-group-start">').text(number.format(row.qty_dus)))
+                                .append($('<td class="recap-group-start text-end">').text('Rp ' + number.format(row.omzet)))
+                            );
+                        });
+                    },
+                    error: function(xhr, status) {
+                        if (status === 'abort') return;
+                        $body.html('<tr><td colspan="7" class="text-danger">Gagal memuat rekap.</td></tr>');
+                    },
+                    complete: function() {
+                        recapRequest = null;
+                    }
+                });
+            }
 
             let pastedProofBlobs = [];
 

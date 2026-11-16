@@ -189,26 +189,38 @@ class DashboardController extends Controller
         $response['grossProfit'] = $response['totalSaleList'] - $response['totalPurchaseList'];
         $response['netProfit']   = $response['grossProfit'] - $response['totalExpenseAccount'];
 
-        // Harga modal per produk diambil dari sisa batch FIFO, bukan rata-rata
-        // bergerak: stok yang tersisa dinilai dengan harga pembelian yang
-        // benar-benar masih menempel padanya.
+        // Harga modal per produk diambil dari sisa batch FIFO, dipisah per
+        // lokasi: stok gudang dinilai dengan batch gudang (pasif), stok
+        // produksi dengan batch produksi (aktif). Kalau batch di lokasi itu
+        // sudah habis, pakai harga FIFO semua batch, lalu avg_cost produk.
         $fifoCost = DB::table('cost_layers')
-            ->select('product_id', DB::raw('SUM(qty_remaining * unit_cost) / NULLIF(SUM(qty_remaining), 0) AS unit_cost'))
+            ->select(
+                'product_id',
+                DB::raw("SUM(CASE WHEN location = 'warehouse' THEN qty_remaining * unit_cost ELSE 0 END)
+                    / NULLIF(SUM(CASE WHEN location = 'warehouse' THEN qty_remaining ELSE 0 END), 0) AS warehouse_cost"),
+                DB::raw("SUM(CASE WHEN location <> 'warehouse' THEN qty_remaining * unit_cost ELSE 0 END)
+                    / NULLIF(SUM(CASE WHEN location <> 'warehouse' THEN qty_remaining ELSE 0 END), 0) AS production_cost"),
+                DB::raw('SUM(qty_remaining * unit_cost) / NULLIF(SUM(qty_remaining), 0) AS all_cost')
+            )
+            ->where('qty_remaining', '>', 0)
             ->groupBy('product_id');
 
-        $inventoryValue = InventoryStock::join('products', 'products.id', '=', 'inventory_stocks.product_id')
+        // Stok minus dianggap 0 supaya tidak mengurangi nilai persediaan.
+        $inventoryValue = (float) InventoryStock::join('products', 'products.id', '=', 'inventory_stocks.product_id')
             ->leftJoinSub($fifoCost, 'fifo', 'fifo.product_id', '=', 'inventory_stocks.product_id')
-            ->whereNull('products.deleted_at') // kalau soft delete
-            ->sum(DB::raw('inventory_stocks.inventory_stock * COALESCE(fifo.unit_cost, products.avg_cost)'));
+            ->whereNull('products.deleted_at')
+            ->sum(DB::raw('GREATEST(inventory_stocks.inventory_stock, 0)
+                * COALESCE(fifo.warehouse_cost, fifo.all_cost, products.avg_cost, 0)'));
 
-        $productionValue = ProductionStock::join('products', 'products.id', '=', 'production_stocks.product_id')
+        $productionValue = (float) ProductionStock::join('products', 'products.id', '=', 'production_stocks.product_id')
             ->leftJoinSub($fifoCost, 'fifo', 'fifo.product_id', '=', 'production_stocks.product_id')
             ->whereNull('products.deleted_at')
-            ->sum(DB::raw('production_stocks.available_quantity * COALESCE(fifo.unit_cost, products.avg_cost)'));
+            ->sum(DB::raw('GREATEST(production_stocks.available_quantity, 0)
+                * COALESCE(fifo.production_cost, fifo.all_cost, products.avg_cost, 0)'));
 
-        $response['inventoryValue'] = $inventoryValue;
-        $response['productionValue'] = $productionValue;
-        $response['totalInventoryValuation'] = $inventoryValue + $productionValue;
+        $response['inventoryValue'] = round($inventoryValue);
+        $response['productionValue'] = round($productionValue);
+        $response['totalInventoryValuation'] = round($inventoryValue + $productionValue);
 
         return response()->json($response);
     }
