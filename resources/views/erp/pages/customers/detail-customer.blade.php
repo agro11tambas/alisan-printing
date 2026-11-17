@@ -123,6 +123,15 @@
                                             </button>
                                         </div>
                                     </div>
+
+                                    {{-- Tooltip di tombol disabled sering tidak muncul, jadi alasannya ditulis langsung. --}}
+                                    @if ($account->hasUsableLoginLink() && ! $copyableLoginUrl)
+                                        <div class="small text-warning mt-2 text-end">
+                                            <i class="feather-alert-circle me-1"></i>
+                                            Link aktif ini dibuat sebelum fitur salin ulang ada, jadi tidak bisa disalin.
+                                            Cabut lalu buat link baru.
+                                        </div>
+                                    @endif
                                 </div>
                             @empty
                                 <div class="border rounded-3 p-2 text-center bg-light">
