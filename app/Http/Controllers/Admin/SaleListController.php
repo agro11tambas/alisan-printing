@@ -654,7 +654,8 @@ class SaleListController extends Controller
      * - Existing Customer: customer unik lain yang order ke salesperson ini
      *   pada periode filter (sudah pernah order sebelumnya).
      * - Qty Dus: semua item dikonversi ke Dus lewat konversi satuan produk /
-     *   bundle. Item tanpa satuan Dus tidak ikut dihitung.
+     *   bundle. Item tanpa satuan Dus tidak ikut dihitung. Bundle dihitung
+     *   1 baris; produk secondary yang dijual satuan tidak dihitung.
      * - Omzet: jumlah grand_total order.
      */
     public function dataSaleListRecap(Request $request)
@@ -703,7 +704,24 @@ class SaleListController extends Controller
             ->whereHas('unit', fn ($q) => $q->where('name', 'Dus'))
             ->pluck('conversion_value', 'product_bundle_id');
 
-        $toDus = function ($item) use ($productDusFactors, $bundleDusFactors): float {
+        // Produk yang terdaftar sebagai secondary di bundle aktif mana pun.
+        // Kalau dijual satuan, item ini tidak ikut Qty Dus. Bundle sendiri
+        // tetap dihitung 1 (satu baris order item, konversi Dus milik bundle).
+        $secondaryProductIds = DB::table('product_bundle_items as item')
+            ->join('product_bundles as bundle', 'bundle.id', '=', 'item.bundle_id')
+            ->where('item.role', 'secondary')
+            ->whereNull('item.deleted_at')
+            ->whereNull('bundle.deleted_at')
+            ->whereIn('item.product_id', $items->pluck('product_id')->filter()->unique()->values())
+            ->distinct()
+            ->pluck('item.product_id')
+            ->flip();
+
+        $toDus = function ($item) use ($productDusFactors, $bundleDusFactors, $secondaryProductIds): float {
+            if (! $item->product_bundle_id && isset($secondaryProductIds[$item->product_id])) {
+                return 0.0;
+            }
+
             if (strcasecmp((string) $item->unit_name, 'Dus') === 0) {
                 return (float) $item->quantity;
             }

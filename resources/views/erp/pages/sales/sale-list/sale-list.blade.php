@@ -330,7 +330,7 @@
                                             <option value="yearly">Yearly</option>
                                             <option value="year_to_date">Year to Date</option>
                                             <option value="last_30_days">Last 30 Days</option>
-                                            <option value="this_month">This Month</option>
+                                            <option value="this_month" selected>This Month</option>
                                             <option value="last_7_days">Last 7 Days</option>
                                             <option value="today">Today</option>
                                             <option value="custom">Custom Range</option>
