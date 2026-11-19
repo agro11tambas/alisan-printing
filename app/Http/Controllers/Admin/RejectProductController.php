@@ -53,7 +53,7 @@ class RejectProductController extends Controller
 
     public function dataDetailRejectProducts(Request $request, $id)
     {
-        $rejectRecords = RejectProduct::with(['orderProgress', 'user'])
+        $rejectRecords = RejectProduct::with(['orderProgress', 'saleReturn', 'user'])
             ->where('product_id', $id)
             ->orderBy('reject_date', 'desc');
 
@@ -65,7 +65,9 @@ class RejectProductController extends Controller
         return DataTables::of($rejectRecords)
             ->addIndexColumn()
             ->addColumn('reject_date', fn($record) => $record->reject_date?->format('Y-m-d') ?? '-')
-            ->addColumn('order_progress', fn($record) => $record->orderProgress?->code ?? '-')
+            ->addColumn('order_progress', fn($record) => $record->sale_return_id
+                ? 'Sale Return ' . ($record->saleReturn?->order_number ?? '#' . $record->sale_return_id)
+                : ($record->orderProgress?->code ?? '-'))
             ->addColumn(
                 'quantity',
                 fn($record) =>
@@ -106,7 +108,7 @@ class RejectProductController extends Controller
 
             // Validasi stok cukup
             if ($reject->quantity < $qty) {
-                return back()->with('error', 'Jumlah return melebihi stok reject yang tersedia!');
+                return back()->with('error', 'Jumlah return melebihi stok recover yang tersedia!');
             }
 
             // Buat record di tabel Inventory
@@ -137,7 +139,7 @@ class RejectProductController extends Controller
             }
 
             DB::commit();
-            return redirect()->back()->with('success', 'Reject product berhasil dikembalikan ke warehouse.');
+            return redirect()->back()->with('success', 'Recover product berhasil dikembalikan ke warehouse.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Return reject product gagal: ' . $e->getMessage());

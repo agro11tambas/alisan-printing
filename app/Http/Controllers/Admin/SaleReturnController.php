@@ -25,6 +25,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\ProductionStock;
+use App\Models\RejectProduct;
 use App\Models\SaleReturnEditHistory;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
@@ -128,11 +129,16 @@ class SaleReturnController extends Controller
                     break;
 
                 case 'Progress':
-                    $returns->whereIn('payment_status', ['Partially Paid', '-']);
+                    $returns->whereIn('payment_status', ['Partially Paid', '-'])
+                        ->whereNull('completed_at');
                     break;
 
                 case 'Complete':
-                    $returns->whereIn('payment_status', ['Refunded', 'Customer Deposit', 'Over Refunded', 'Over Customer Deposit', 'Retur']);
+                    // Selesai karena pembayarannya, atau ditutup manual lewat tombol Complete.
+                    $returns->where(function ($q) {
+                        $q->whereIn('payment_status', SaleReturn::COMPLETE_PAYMENT_STATUSES)
+                            ->orWhereNotNull('completed_at');
+                    });
                     break;
 
                 default:
@@ -224,6 +230,28 @@ class SaleReturnController extends Controller
                     : ucwords($returnPaymentStatus);
 
                 $returnPaymentBadge = '<div class="badge ' . $returnBadgeClass . '">' . $returnPaymentText . '</div>' . $verifiedIcon;
+
+                if ($return->completed_at) {
+                    $returnPaymentBadge .= '<div class="mt-1"><span class="badge bg-soft-success text-success">Completed</span></div>';
+                }
+
+                // 🔸 Jenis retur, dari qty item yang diisi saat create/edit sale return.
+                // items sudah di-eager-load, jadi tidak ada query tambahan per baris.
+                $returnTypes = [
+                    'canceled_quantity' => ['Restock Product', 'bg-soft-info text-info'],
+                    'recover_quantity'  => ['Recover Product', 'bg-soft-primary text-primary'],
+                    'defect_quantity'   => ['Defect Product', 'bg-soft-danger text-danger'],
+                ];
+                $typeBadges = '';
+                foreach ($returnTypes as $column => [$label, $class]) {
+                    $qty = (int) $return->items->sum($column);
+                    if ($qty > 0) {
+                        $typeBadges .= '<span class="badge ' . $class . ' me-1 mb-1">' . $label . ' (' . number_format($qty, 0, ',', '.') . ')</span>';
+                    }
+                }
+                if ($typeBadges !== '') {
+                    $returnPaymentBadge .= '<div class="mt-1 d-flex flex-wrap">' . $typeBadges . '</div>';
+                }
 
                 // 🔸 Status badge
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($return->status) . '</div>';
@@ -403,13 +431,13 @@ class SaleReturnController extends Controller
         $returnedPerItem = \App\Models\SaleReturnItem::query()
             ->whereIn('order_item_id', $orderItemIds)
             ->groupBy('order_item_id')
-            ->selectRaw('order_item_id, COALESCE(SUM(canceled_quantity + defect_quantity), 0) as total_return')
+            ->selectRaw('order_item_id, COALESCE(SUM(canceled_quantity + recover_quantity + defect_quantity), 0) as total_return')
             ->pluck('total_return', 'order_item_id');
 
         $returnedPerItemProduct = \App\Models\SaleReturnItem::query()
             ->whereIn('order_item_id', $orderItemIds)
             ->groupBy('order_item_id', 'product_id')
-            ->selectRaw('order_item_id, product_id, COALESCE(SUM(canceled_quantity + defect_quantity), 0) as total_return')
+            ->selectRaw('order_item_id, product_id, COALESCE(SUM(canceled_quantity + recover_quantity + defect_quantity), 0) as total_return')
             ->get()
             ->keyBy(fn ($row) => $row->order_item_id.':'.$row->product_id);
 
@@ -477,6 +505,7 @@ class SaleReturnController extends Controller
             'order_item_ids'    => 'required|array',
             'product_id'        => 'required|array',
             'canceled_quantity' => 'required|array',
+            'recover_quantity'  => 'nullable|array',
             'defect_quantity' => 'required|array',
             'price'             => 'required|array',
             'total'             => 'required|array',
@@ -531,8 +560,9 @@ class SaleReturnController extends Controller
 
                 $productId = $request->product_id[$index] ?? null;
                 $canceledQty = (int)($request->canceled_quantity[$index] ?? 0);
+                $recoverQty = (int)($request->recover_quantity[$index] ?? 0);
                 $defectQty = (int)($request->defect_quantity[$index] ?? 0);
-                $totalQty = $canceledQty + $defectQty;
+                $totalQty = $canceledQty + $recoverQty + $defectQty;
 
                 if ($totalQty <= 0) continue;
                 $price     = (float)($request->price[$index] ?? 0);
@@ -543,7 +573,7 @@ class SaleReturnController extends Controller
                 // Validasi retur
                 $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)
                     ->where('product_id', $productId)
-                    ->sum(DB::raw('COALESCE(canceled_quantity, 0) + COALESCE(defect_quantity, 0)'));
+                    ->sum(DB::raw('COALESCE(canceled_quantity, 0) + COALESCE(recover_quantity, 0) + COALESCE(defect_quantity, 0)'));
 
                 $maxQty = max(0, $orderItem->quantity - $returnedQty);
                 if ($totalQty > $maxQty) {
@@ -568,6 +598,7 @@ class SaleReturnController extends Controller
                     'product_id'           => $productId,
                     'order_item_id'        => $orderItem->id,
                     'canceled_quantity'    => $canceledQty,
+                    'recover_quantity'     => $recoverQty,
                     'defect_quantity'      => $defectQty,
                     'price'                => $price,
                     'total'                => $subtotal,
@@ -576,6 +607,10 @@ class SaleReturnController extends Controller
                     'total_cost'           => $totalCostAtSale,
                     'total_fixed_cost'     => $totalFixedCostAtSale,
                 ]);
+
+                if ($recoverQty > 0) {
+                    $this->syncRecoverProduct($saleReturn, $saleReturnItem, $orderItem, $productId, $recoverQty, $request->return_date);
+                }
 
                 if ($defectQty > 0) {
                     DefectProduct::create([
@@ -750,14 +785,14 @@ class SaleReturnController extends Controller
             ->whereIn('order_item_id', $orderItemIds)
             ->where('sale_return_id', '!=', $saleReturn->id)
             ->groupBy('order_item_id')
-            ->selectRaw('order_item_id, COALESCE(SUM(COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0)), 0) as total_return')
+            ->selectRaw('order_item_id, COALESCE(SUM(COALESCE(canceled_quantity,0) + COALESCE(recover_quantity,0) + COALESCE(defect_quantity,0)), 0) as total_return')
             ->pluck('total_return', 'order_item_id');
 
         $returnedPerItemProduct = SaleReturnItem::query()
             ->whereIn('order_item_id', $orderItemIds)
             ->where('sale_return_id', '!=', $saleReturn->id)
             ->groupBy('order_item_id', 'product_id')
-            ->selectRaw('order_item_id, product_id, COALESCE(SUM(COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0)), 0) as total_return')
+            ->selectRaw('order_item_id, product_id, COALESCE(SUM(COALESCE(canceled_quantity,0) + COALESCE(recover_quantity,0) + COALESCE(defect_quantity,0)), 0) as total_return')
             ->get()
             ->keyBy(fn ($row) => $row->order_item_id.':'.$row->product_id);
 
@@ -777,6 +812,7 @@ class SaleReturnController extends Controller
                     'quantity'          => $item->quantity,
                     'remaining_qty'     => max(0, $item->quantity - $returnedQty),
                     'canceled_quantity' => $existingItem->canceled_quantity ?? 0,
+                    'recover_quantity'  => $existingItem->recover_quantity ?? 0,
                     'defect_quantity'   => $existingItem->defect_quantity ?? 0,
                     'price'             => $existingItem->price ?? ($item->product->price ?? 0),
                     'total'             => $existingItem->total ?? 0,
@@ -802,6 +838,7 @@ class SaleReturnController extends Controller
                         'quantity'          => $item->quantity,
                         'remaining_qty'     => max(0, $item->quantity - $bundleReturnedQty),
                         'canceled_quantity' => $existingItem->canceled_quantity ?? 0,
+                        'recover_quantity'  => $existingItem->recover_quantity ?? 0,
                         'defect_quantity'   => $existingItem->defect_quantity ?? 0,
                         'price'             => $existingItem->price ?? ($bundleItem->product->price ?? 0),
                         'total'             => $existingItem->total ?? 0,
@@ -842,6 +879,7 @@ class SaleReturnController extends Controller
             'order_item_ids'    => 'required|array',
             'product_id'        => 'required|array',
             'canceled_quantity' => 'required|array',
+            'recover_quantity'  => 'nullable|array',
             'defect_quantity'   => 'required|array',
             'price'             => 'required|array',
             'total'             => 'required|array',
@@ -884,7 +922,17 @@ class SaleReturnController extends Controller
                     DB::rollBack();
                     return back()->with(
                         'error',
-                        "Gagal memperbarui: Quantity canceled untuk produk {$item->product->name} ({$canceled->quantity}) lebih kecil dari jumlah di Sale Return ({$item->canceled_quantity})."
+                        "Gagal memperbarui: Quantity restock untuk produk {$item->product->name} ({$canceled->quantity}) lebih kecil dari jumlah di Sale Return ({$item->canceled_quantity})."
+                    );
+                }
+
+                // Cek Recover Product
+                $recover = RejectProduct::where('sale_return_item_id', $item->id)->first();
+                if ($recover && $recover->quantity < $item->recover_quantity) {
+                    DB::rollBack();
+                    return back()->with(
+                        'error',
+                        "Gagal memperbarui: Quantity recover untuk produk {$item->product->name} ({$recover->quantity}) lebih kecil dari jumlah di Sale Return ({$item->recover_quantity})."
                     );
                 }
             }
@@ -921,6 +969,7 @@ class SaleReturnController extends Controller
                 return [$item->id => [
                     'product' => $item->product->name ?? '-',
                     'canceled_qty' => (int)$item->canceled_quantity,
+                    'recover_qty' => (int)$item->recover_quantity,
                     'defect_qty' => (int)$item->defect_quantity,
                     'price' => (float)$item->price,
                     'total' => (float)$item->total,
@@ -957,9 +1006,10 @@ class SaleReturnController extends Controller
 
                 $productId = $request->product_id[$index] ?? null;
                 $canceledQty = (int)($request->canceled_quantity[$index] ?? 0);
+                $recoverQty = (int)($request->recover_quantity[$index] ?? 0);
                 $defectQty = (int)($request->defect_quantity[$index] ?? 0);
 
-                $totalQty = $canceledQty + $defectQty;
+                $totalQty = $canceledQty + $recoverQty + $defectQty;
 
                 if ($totalQty <= 0 || !$productId) continue;
 
@@ -983,6 +1033,7 @@ class SaleReturnController extends Controller
                     $item = $existingItems[$key];
                     $item->update([
                         'canceled_quantity'    => $canceledQty,
+                        'recover_quantity'     => $recoverQty,
                         'defect_quantity'      => $defectQty,
                         'price'                => $price,
                         'total'                => $subtotal,
@@ -998,6 +1049,7 @@ class SaleReturnController extends Controller
                         'product_id'           => $productId,
                         'order_item_id'        => $orderItem->id,
                         'canceled_quantity'    => $canceledQty,
+                        'recover_quantity'     => $recoverQty,
                         'defect_quantity'      => $defectQty,
                         'price'                => $price,
                         'total'                => $subtotal,
@@ -1007,6 +1059,10 @@ class SaleReturnController extends Controller
                         'total_fixed_cost'     => $totalFixedCostAtSale,
                     ]);
                 }
+
+                // ===== RECOVER =====
+                // 0 berarti record Recover Product untuk baris ini dihapus.
+                $this->syncRecoverProduct($saleReturn, $item, $orderItem, $productId, $recoverQty, $request->return_date);
 
                 // ===== DEFECT =====
                 if ($defectQty > 0) {
@@ -1099,6 +1155,7 @@ class SaleReturnController extends Controller
             // Hapus item yang tidak ada di request
             foreach ($existingItems as $key => $item) {
                 if (!in_array($key, $requestKeys)) {
+                    RejectProduct::where('sale_return_item_id', $item->id)->forceDelete();
                     $item->delete();
                 }
             }
@@ -1269,7 +1326,17 @@ class SaleReturnController extends Controller
                     DB::rollBack();
                     return back()->with(
                         'error',
-                        "Tidak bisa menghapus Sale Return: Quantity canceled untuk produk {$item->product->name} ({$canceled->quantity}) lebih kecil dari jumlah di Sale Return ({$item->canceled_quantity})."
+                        "Tidak bisa menghapus Sale Return: Quantity restock untuk produk {$item->product->name} ({$canceled->quantity}) lebih kecil dari jumlah di Sale Return ({$item->canceled_quantity})."
+                    );
+                }
+
+                // Cek Recover Product
+                $recover = RejectProduct::where('sale_return_item_id', $item->id)->first();
+                if ($recover && $recover->quantity < $item->recover_quantity) {
+                    DB::rollBack();
+                    return back()->with(
+                        'error',
+                        "Tidak bisa menghapus Sale Return: Quantity recover untuk produk {$item->product->name} ({$recover->quantity}) lebih kecil dari jumlah di Sale Return ({$item->recover_quantity})."
                     );
                 }
             }
@@ -1438,6 +1505,36 @@ class SaleReturnController extends Controller
             ]);
             return back()->with('error', 'Gagal menghapus Sale Return: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Recover Qty dicatat sebagai record pending di modul Recover Product
+     * (tabel reject_products), satu record per baris sale return. Dari sana
+     * barangnya di-"Return to Warehouse" seperti reject produksi.
+     *
+     * Qty 0 menghapus record-nya. forceDelete, bukan soft delete, supaya tidak
+     * ikut hidup lagi saat sale return di-restore.
+     */
+    private function syncRecoverProduct(SaleReturn $saleReturn, SaleReturnItem $item, $orderItem, $productId, int $recoverQty, $returnDate): void
+    {
+        if ($recoverQty <= 0) {
+            RejectProduct::where('sale_return_item_id', $item->id)->forceDelete();
+            return;
+        }
+
+        RejectProduct::updateOrCreate(
+            ['sale_return_item_id' => $item->id],
+            [
+                'sale_return_id' => $saleReturn->id,
+                'order_item_id'  => $orderItem->id,
+                'product_id'     => $productId,
+                'quantity'       => $recoverQty,
+                'reject_date'    => Carbon::parse($returnDate)->toDateString(),
+                'status'         => 'pending',
+                'note'           => 'Recover product from Sale Return ' . $saleReturn->order_number,
+                'user_id'        => Auth::id(),
+            ]
+        );
     }
 
     public function getSaleReturnDetail($id)
@@ -2002,6 +2099,40 @@ class SaleReturnController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Gagal mengubah payment status sale return: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Tutup sale return secara manual: pindah dari tab Progress ke Complete.
+     * payment_status tidak diubah, jadi status pembayarannya tetap terbaca.
+     */
+    public function markAsComplete($id)
+    {
+        try {
+            $saleReturn = SaleReturn::find($id);
+
+            if (!$saleReturn) {
+                return response()->json(['message' => 'Sale return tidak ditemukan.'], 404);
+            }
+
+            if ($saleReturn->isCompleted()) {
+                return response()->json(['message' => 'Sale return ini sudah complete.'], 422);
+            }
+
+            $saleReturn->update([
+                'completed_at' => now(),
+                'completed_by' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'message' => "Sale return {$saleReturn->order_number} dipindah ke Complete.",
+                'sale_return_id' => $saleReturn->id,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Mark sale return complete gagal: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Gagal menandai sale return complete: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -363,6 +363,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
 
             Route::post('/erp/sales/sale-returns/verify-payment/{groupId}', [SaleReturnController::class, 'verifyPayment'])->name('sale-returns.verify-payment');
             Route::post('/erp/sales/sale-returns/mark-as-retur/{id}', [SaleReturnController::class, 'markAsRetur']);
+            Route::post('/erp/sales/sale-returns/mark-as-complete/{id}', [SaleReturnController::class, 'markAsComplete']);
         });
     });
 

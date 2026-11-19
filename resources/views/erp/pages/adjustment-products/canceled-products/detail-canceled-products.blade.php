@@ -26,12 +26,12 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Canceled Product Detail</h5>
+                <h5 class="m-b-10">Restock Product Detail</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Production</li>
-                <li class="breadcrumb-item"><a href="/erp/productions/canceled-products">Canceled Products</a></li>
+                <li class="breadcrumb-item"><a href="/erp/productions/canceled-products">Restock Products</a></li>
                 <li class="breadcrumb-item">Detail</li>
             </ul>
         </div>

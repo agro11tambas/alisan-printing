@@ -31,7 +31,7 @@
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Production</li>
-                <li class="breadcrumb-item">Canceled Products</li>
+                <li class="breadcrumb-item">Restock Products</li>
             </ul>
         </div>
         <div class="page-header-right ms-auto">
@@ -89,7 +89,7 @@
                                         <th class="wd-30">No</th>
                                         <th>Item Name</th>
                                         <!-- <th>Purchase Stock</th> -->
-                                        <th>Canceled Product</th>
+                                        <th>Restock Product</th>
                                     </tr>
                                 </thead>
                                 <tbody>

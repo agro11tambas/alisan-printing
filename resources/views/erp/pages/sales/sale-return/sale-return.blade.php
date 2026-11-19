@@ -1571,7 +1571,7 @@
                         if (!response.data || response.data.length === 0) {
                             tbody.html(`
                         <tr>
-                            <td colspan="4" class="text-center text-muted">No canceled products available</td>
+                            <td colspan="4" class="text-center text-muted">No restock products available</td>
                         </tr>
                     `);
                             $('#btnSubmitReturn').prop('disabled', true);
@@ -1814,6 +1814,58 @@
                                 'Gagal mengubah payment status menjadi Retur.'
                         });
                     }
+                });
+            });
+
+            // ========= MARK AS COMPLETE =========
+            $(document).on('click', '.btn-mark-complete', function(e) {
+                e.preventDefault();
+
+                const button = $(this);
+                const orderNumber = button.data('order-number') || '-';
+                const url = button.data('url');
+
+                Swal.fire({
+                    icon: 'question',
+                    title: 'Complete sale return?',
+                    html: `Sale return <b>${$('<div>').text(orderNumber).html()}</b> akan dipindah dari Progress ke Complete.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Complete',
+                    cancelButtonText: 'Batal',
+                }).then((result) => {
+                    if (!result.isConfirmed) return;
+
+                    Swal.fire({
+                        title: 'Processing...',
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    $.ajax({
+                        url: url,
+                        type: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        success: function(response) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: response.message ?? 'Sale return dipindah ke Complete.',
+                                timer: 1200,
+                                showConfirmButton: false
+                            });
+
+                            reloadActiveTab();
+                        },
+                        error: function(xhr) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal!',
+                                text: xhr.responseJSON?.message ?? 'Gagal menandai sale return complete.'
+                            });
+                        }
+                    });
                 });
             });
         });

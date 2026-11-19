@@ -16,12 +16,12 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Reject Product History</h5>
+                <h5 class="m-b-10">Recover Product History</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Production</li>
-                <li class="breadcrumb-item"><a href="/erp/adjustment-products/reject-products">Reject Products</a></li>
+                <li class="breadcrumb-item"><a href="/erp/adjustment-products/reject-products">Recover Products</a></li>
                 <li class="breadcrumb-item active">History</li>
             </ul>
         </div>

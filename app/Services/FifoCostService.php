@@ -1028,6 +1028,7 @@ class FifoCostService
                 'oi.subtotal AS subtotal',
                 'oi.total_after_discount AS total_after_discount',
                 DB::raw('0 AS canceled_quantity'),
+                DB::raw('0 AS recover_quantity'),
                 DB::raw('0 AS defect_quantity'),
             ]);
 
@@ -1078,6 +1079,7 @@ class FifoCostService
                 DB::raw('0 AS subtotal'),
                 DB::raw('0 AS total_after_discount'),
                 'sri.canceled_quantity AS canceled_quantity',
+                'sri.recover_quantity AS recover_quantity',
                 'sri.defect_quantity AS defect_quantity',
             ]);
 
@@ -1120,6 +1122,7 @@ class FifoCostService
                 DB::raw('0 AS subtotal'),
                 DB::raw('0 AS total_after_discount'),
                 DB::raw('0 AS canceled_quantity'),
+                DB::raw('0 AS recover_quantity'),
                 DB::raw('0 AS defect_quantity'),
             ]);
     }
@@ -1708,9 +1711,9 @@ class FifoCostService
      * harga batch masing-masing. Bundle ikut benar dengan sendirinya, karena
      * alokasi aslinya memang sudah per komponen.
      *
-     * Hanya kuantitas canceled yang masuk lagi ke antrian; kuantitas defect
-     * biayanya tetap dibalikkan tapi barangnya tidak bisa dijual lagi, jadi
-     * tidak dikembalikan ke stok.
+     * Kuantitas canceled (Restock) dan recover yang masuk lagi ke antrian;
+     * kuantitas defect biayanya tetap dibalikkan tapi barangnya tidak bisa
+     * dijual lagi, jadi tidak dikembalikan ke stok.
      */
     private function applyReturn(object $event): void
     {
@@ -1723,7 +1726,8 @@ class FifoCostService
         }
 
         $conversion = max((float) ($event->unit_conversion_value ?: 1), 1);
-        $canceled = (float) ($event->canceled_quantity ?: 0) * $conversion;
+        // Recover diperlakukan sama seperti restock: barangnya kembali ke batch asal.
+        $canceled = ((float) ($event->canceled_quantity ?: 0) + (float) ($event->recover_quantity ?? 0)) * $conversion;
         $defect = (float) ($event->defect_quantity ?: 0) * $conversion;
         $returned = $canceled + $defect;
 

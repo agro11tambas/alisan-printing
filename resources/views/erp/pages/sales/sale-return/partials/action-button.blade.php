@@ -20,6 +20,17 @@
                     </li>
                 @endif
 
+                @if (!$return->isCompleted())
+                    <li>
+                        <button type="button" class="dropdown-item btn-mark-complete" data-id="{{ $return->id }}"
+                            data-order-number="{{ $return->order_number }}"
+                            data-url="{{ url('/erp/sales/sale-returns/mark-as-complete/' . $return->id) }}">
+                            <i class="feather feather-check-circle me-3"></i>
+                            <span>Complete</span>
+                        </button>
+                    </li>
+                @endif
+
                 <li>
                     <hr class="my-1">
                 </li>

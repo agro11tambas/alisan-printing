@@ -25,12 +25,12 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Reject Product Detail</h5>
+                <h5 class="m-b-10">Recover Product Detail</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Adjustment</li>
-                <li class="breadcrumb-item"><a href="/erp/adjustment-products/reject-products">Reject Products</a></li>
+                <li class="breadcrumb-item"><a href="/erp/adjustment-products/reject-products">Recover Products</a></li>
                 <li class="breadcrumb-item">Detail</li>
             </ul>
         </div>
@@ -86,7 +86,7 @@
                                     <tr>
                                         <th class="wd-30">No</th>
                                         <th>Date</th>
-                                        <th>Order Progress</th>
+                                        <th>Source</th>
                                         <th>Quantity</th>
                                         <th>Status</th>
                                         <th>Note</th>

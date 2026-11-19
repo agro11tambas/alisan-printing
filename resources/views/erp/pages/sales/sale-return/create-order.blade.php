@@ -50,7 +50,7 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: minmax(380px, 4fr) 130px 130px 130px 130px;
+            grid-template-columns: minmax(380px, 4fr) 130px 130px 130px 130px 130px;
             gap: 10px;
             align-items: start;
         }
@@ -263,7 +263,7 @@
                                                     class="form-select form-control">
                                                     <option disabled selected hidden value="">Pilih jenis return
                                                     </option>
-                                                    <option value="canceled">Dibatalkan (Canceled Product)</option>
+                                                    <option value="canceled">Restock (Restock Product)</option>
                                                     <option value="defect">Cacat (Defect Product)</option>
                                                 </select>
                                             </div>
@@ -307,7 +307,8 @@
                                 </div>
                                 <div class="product-grid product-grid-header mb-1">
                                     <div class="product-col-span-2">Product</div>
-                                    <div>Canceled Qty</div>
+                                    <div>Restock Qty</div>
+                                    <div>Recover Qty</div>
                                     <div>Defect Qty</div>
                                     <div>Price</div>
                                     <div>Total</div>
@@ -339,12 +340,20 @@
                                                 </div>
 
                                                 <div class="form-group">
-                                                    <label>Canceled Qty</label>
+                                                    <label>Restock Qty</label>
                                                     <input type="text" inputmode="numeric" name="canceled_quantity[]"
                                                         class="form-control canceled_quantity" value="0">
                                                     <small class="text-muted">
                                                         Sisa max: {{ number_format($item->remaining_qty) }}
                                                     </small>
+                                                    <div class="invalid-feedback text-danger small"></div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Recover Qty</label>
+                                                    <input type="text" inputmode="numeric" name="recover_quantity[]"
+                                                        class="form-control recover_quantity"
+                                                        value="0">
                                                     <div class="invalid-feedback text-danger small"></div>
                                                 </div>
 
@@ -475,9 +484,10 @@
 
         function updateRowTotal(row) {
             const canceled = parseFloat(row.find('.canceled_quantity').val().replace(/\D/g, '') || 0);
+            const recover = parseFloat(row.find('.recover_quantity').val().replace(/\D/g, '') || 0);
             const defect = parseFloat(row.find('.defect_quantity').val().replace(/\D/g, '') || 0);
             const price = parseFloat(row.find('.price').val().replace(/\D/g, '') || 0);
-            const total = (canceled + defect) * price;
+            const total = (canceled + recover + defect) * price;
 
             // Update hidden dan tampilan
             row.find('.price').val(price.toFixed(0));
@@ -637,9 +647,10 @@
 
             $('.product-item').each(function() {
                 const canceled = parseInt($(this).find('.canceled_quantity').val().replace(/\D/g, '') || 0);
+                const recover = parseInt($(this).find('.recover_quantity').val().replace(/\D/g, '') || 0);
                 const defect = parseInt($(this).find('.defect_quantity').val().replace(/\D/g, '') || 0);
 
-                if (canceled > 0 || defect > 0) {
+                if (canceled > 0 || recover > 0 || defect > 0) {
                     hasAtLeastOneFilled = true;
                 }
             });
@@ -649,7 +660,7 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Minimal 1 produk harus diisi!',
-                    text: 'Isi minimal salah satu quantity (Canceled / Defect) pada salah satu produk.',
+                    text: 'Isi minimal salah satu quantity (Restock / Recover / Defect) pada salah satu produk.',
                 });
                 return;
             }
@@ -658,14 +669,16 @@
             $('.product-item').each(function() {
                 const row = $(this);
                 const canceledInput = row.find('.canceled_quantity');
+                const recoverInput = row.find('.recover_quantity');
                 const defectInput = row.find('.defect_quantity');
                 const priceInput = row.find('.price_display');
 
                 const canceled = parseInt(canceledInput.val().replace(/\D/g, '') || 0);
+                const recover = parseInt(recoverInput.val().replace(/\D/g, '') || 0);
                 const defect = parseInt(defectInput.val().replace(/\D/g, '') || 0);
                 const price = parseFloat(priceInput.val().replace(/\D/g, '') || 0);
                 const maxQty = parseInt(row.find('small.text-muted').text().replace(/\D/g, '') || 0);
-                const totalReturn = canceled + defect;
+                const totalReturn = canceled + recover + defect;
 
                 // 🔹 Cek: wajib isi salah satu qty
                 // if (canceled === 0 && defect === 0) {
@@ -674,10 +687,10 @@
                 //     defectInput.addClass('is-invalid');
 
                 //     canceledInput.after(
-                //         '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
+                //         '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Restock / Recover / Defect).</div>'
                 //     );
                 //     defectInput.after(
-                //         '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
+                //         '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Restock / Recover / Defect).</div>'
                 //     );
                 // }
 
@@ -685,6 +698,7 @@
                 if (totalReturn > maxQty) {
                     isValid = false;
                     canceledInput.addClass('is-invalid');
+                    recoverInput.addClass('is-invalid');
                     defectInput.addClass('is-invalid');
 
                     canceledInput.after(
@@ -720,7 +734,7 @@
             }
 
             // 🔹 Bersihkan format angka sebelum submit
-            $('input[name="canceled_quantity[]"], input[name="defect_quantity[]"], input[name="price[]"], input[name="total[]"]')
+            $('input[name="canceled_quantity[]"], input[name="recover_quantity[]"], input[name="defect_quantity[]"], input[name="price[]"], input[name="total[]"]')
                 .each(function() {
                     $(this).val($(this).val().replace(/[.,]/g, ''));
                 });
@@ -801,20 +815,22 @@
             }, 50);
         });
 
-        $(document).on('input', '.canceled_quantity, .defect_quantity', function() {
+        $(document).on('input', '.canceled_quantity, .recover_quantity, .defect_quantity', function() {
             const row = $(this).closest('.product-item');
 
-            // ambil nilai dari 2 kolom quantity
+            // ambil nilai dari 3 kolom quantity
             let canceled = parseInt(row.find('.canceled_quantity').val().replace(/\D/g, '') || 0);
+            let recover = parseInt(row.find('.recover_quantity').val().replace(/\D/g, '') || 0);
             let defect = parseInt(row.find('.defect_quantity').val().replace(/\D/g, '') || 0);
 
             // ambil batas maksimum dari teks "Sisa max: 1.000"
             const maxQty = parseInt(row.find('small.text-muted').text().replace(/\D/g, '') || 0);
-            const totalReturn = canceled + defect;
+            const totalReturn = canceled + recover + defect;
 
             // kalau total melebihi maxQty, batasi nilainya dan tampilkan toast
             if (totalReturn > maxQty) {
-                const remaining = maxQty - (this.classList.contains('canceled_quantity') ? defect : canceled);
+                const current = parseInt($(this).val().replace(/\D/g, '') || 0);
+                const remaining = maxQty - (totalReturn - current);
                 const corrected = Math.max(0, remaining);
                 $(this).val(new Intl.NumberFormat('id-ID').format(corrected));
 
@@ -831,6 +847,8 @@
                 // update variabel agar perhitungan total tetap benar
                 if ($(this).hasClass('canceled_quantity')) {
                     canceled = corrected;
+                } else if ($(this).hasClass('recover_quantity')) {
+                    recover = corrected;
                 } else {
                     defect = corrected;
                 }

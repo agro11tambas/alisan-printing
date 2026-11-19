@@ -30,7 +30,7 @@
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Inventory</li>
-                <li class="breadcrumb-item">Reject Products</li>
+                <li class="breadcrumb-item">Recover Products</li>
             </ul>
         </div>
     </div>
@@ -75,7 +75,7 @@
                                     <tr>
                                         <th class="wd-30">No</th>
                                         <th>Product</th>
-                                        <th>Total Reject</th>
+                                        <th>Total Recover</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>

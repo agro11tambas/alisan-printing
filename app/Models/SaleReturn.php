@@ -23,6 +23,8 @@ class SaleReturn extends Model
         'order_number',
         'return_date',
         'payment_status',
+        'completed_at',
+        'completed_by',
         'total_amount',
         'account',
         'status',
@@ -42,7 +44,17 @@ class SaleReturn extends Model
 
     protected $casts = [
         'deleted_at' => 'datetime',
+        'completed_at' => 'datetime',
     ];
+
+    // Payment status yang otomatis dianggap selesai (tab Complete).
+    public const COMPLETE_PAYMENT_STATUSES = ['Refunded', 'Customer Deposit', 'Over Refunded', 'Over Customer Deposit', 'Retur'];
+
+    public function isCompleted(): bool
+    {
+        return $this->completed_at !== null
+            || in_array($this->payment_status, self::COMPLETE_PAYMENT_STATUSES, true);
+    }
 
     public function saleOrder()
     {
@@ -89,11 +101,20 @@ class SaleReturn extends Model
         return $this->hasMany(CanceledProduct::class, 'sale_return_id');
     }
 
+    // Barang Recover Qty masuk ke modul Recover Product (tabel reject_products).
+    public function recoverProducts()
+    {
+        return $this->hasMany(RejectProduct::class, 'sale_return_id');
+    }
+
     public function hasStockIn(): bool
     {
         return \App\Models\CanceledProduct::where('sale_return_id', $this->id)
             ->where('completed_quantity', '>', 0)
-            ->exists();
+            ->exists()
+            || RejectProduct::where('sale_return_id', $this->id)
+                ->where('returned_quantity', '>', 0)
+                ->exists();
     }
 
     public function customerAccount()
@@ -115,10 +136,12 @@ class SaleReturn extends Model
                 $saleReturn->items()->withTrashed()->forceDelete();
                 $saleReturn->editHistories()->withTrashed()->forceDelete();
                 $saleReturn->canceledProducts()->withTrashed()->forceDelete();
+                $saleReturn->recoverProducts()->withTrashed()->forceDelete();
             } else {
                 $saleReturn->items()->delete();
                 $saleReturn->editHistories()->delete();
                 $saleReturn->canceledProducts()->delete();
+                $saleReturn->recoverProducts()->delete();
             }
         });
 
@@ -126,6 +149,7 @@ class SaleReturn extends Model
             $saleReturn->items()->withTrashed()->restore();
             $saleReturn->editHistories()->withTrashed()->restore();
             $saleReturn->canceledProducts()->withTrashed()->restore();
+            $saleReturn->recoverProducts()->withTrashed()->restore();
         });
     }
 }

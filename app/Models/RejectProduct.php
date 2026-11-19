@@ -14,6 +14,9 @@ class RejectProduct extends Model
 
     protected $fillable = [
         'product_id',
+        'sale_return_id',
+        'sale_return_item_id',
+        'order_item_id',
         'order_progress_id',
         'order_progress_batch_id',
         'reject_date',
@@ -34,6 +37,12 @@ class RejectProduct extends Model
     public function product()
     {
         return $this->belongsTo(Products::class, 'product_id')->withTrashed();
+    }
+
+    // Terisi kalau record ini berasal dari Recover Qty di Sale Return.
+    public function saleReturn()
+    {
+        return $this->belongsTo(SaleReturn::class, 'sale_return_id')->withTrashed();
     }
 
     public function orderProgress()
